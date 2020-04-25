@@ -1,0 +1,32 @@
+syntax = "proto3";
+option go_package = ".;proto";
+
+service GameService {
+  rpc StartGame(StartGameRequest) returns (StartGameResponse) {};
+  rpc JoinGame(JoinGameRequest) returns (JoinGameResponse) {};
+  rpc LeaveGame(LeaveGameRequest) returns (LeaveGameResponse) {};
+}
+
+message StartGameRequest {
+  string phone_id = 1;
+}
+
+message StartGameResponse {
+  string game_code = 1;
+}
+
+message JoinGameRequest {
+  string phone_id = 1;
+  string game_code = 2;
+}
+
+message JoinGameResponse {
+}
+
+message LeaveGameRequest {
+  string phone_id = 1;
+  string game_code = 2;
+}
+
+message LeaveGameResponse {
+}
