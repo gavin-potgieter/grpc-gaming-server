@@ -1,11 +1,23 @@
 # sensense-server
 The server for the Sensense game
 
-## Building
+## Generating server stub
 
 ```bash
-protoc sensense.proto --go_out=plugins=grpc:proto
-go build
+protoc sensense.proto --go_out=plugins=grpc:server/proto
+```
+
+## Generating test client stub
+
+```bash
+protoc sensense.proto --go_out=plugins=grpc:test_client/proto
+```
+
+## Building the Server
+
+```bash
+cd server
+./build
 ```
 
 ## Testing

@@ -1,32 +1,45 @@
 syntax = "proto3";
 option go_package = ".;proto";
 
-service GameService {
-  rpc StartGame(StartGameRequest) returns (StartGameResponse) {};
-  rpc JoinGame(JoinGameRequest) returns (JoinGameResponse) {};
-  rpc LeaveGame(LeaveGameRequest) returns (LeaveGameResponse) {};
+message CreateGameRequest {
+  string player_id = 1;
 }
 
-message StartGameRequest {
-  string phone_id = 1;
-}
-
-message StartGameResponse {
+message CreateGameResponse {
   string game_code = 1;
+  string game_id = 2;
 }
 
 message JoinGameRequest {
-  string phone_id = 1;
+  string player_id = 1;
   string game_code = 2;
 }
 
 message JoinGameResponse {
+  string game_id = 1;
+}
+
+message RejoinGameRequest {
+  string player_id = 1;
+  string game_id = 2;
+}
+
+message RejoinGameResponse {
 }
 
 message LeaveGameRequest {
-  string phone_id = 1;
-  string game_code = 2;
+  string player_id = 1;
+  string game_id = 2;
 }
 
 message LeaveGameResponse {
 }
+
+service GameService {
+  rpc Create(CreateGameRequest) returns (CreateGameResponse) {};
+  rpc Join(JoinGameRequest) returns (JoinGameResponse) {};
+  rpc Rejoin(RejoinGameRequest) returns (RejoinGameResponse) {};
+  rpc Leave(LeaveGameRequest) returns (LeaveGameResponse) {};
+}
+
+// PuzzleService

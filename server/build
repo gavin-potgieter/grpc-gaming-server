@@ -1,0 +1,3 @@
+#!/bin/bash
+
+GONOSUMDB=github.com/gavin-potgieter/* go build -o sensense-server
