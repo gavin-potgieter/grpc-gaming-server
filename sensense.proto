@@ -1,4 +1,5 @@
 syntax = "proto3";
+import "google/protobuf/empty.proto";
 option go_package = ".;proto";
 
 message CreateGameRequest {
@@ -24,22 +25,39 @@ message RejoinGameRequest {
   string game_id = 2;
 }
 
-message RejoinGameResponse {
-}
-
 message LeaveGameRequest {
   string player_id = 1;
   string game_id = 2;
 }
 
-message LeaveGameResponse {
+message ListenGameRequest {
+  string player_id = 1;
+  string game_id = 2;
+}
+
+message GameNotification {
+  enum Type {
+    PLAYER_COUNT_CHANGED = 0;
+    PUZZLE_STARTED = 1;
+  }
+  Type type = 1;
+  int32 count = 2;
+  string puzzle_id = 3;
+}
+
+message StartPuzzleRequest {
+  string game_id = 1;
+  string initial_conditions = 2;
 }
 
 service GameService {
+  // unary services
   rpc Create(CreateGameRequest) returns (CreateGameResponse) {};
   rpc Join(JoinGameRequest) returns (JoinGameResponse) {};
-  rpc Rejoin(RejoinGameRequest) returns (RejoinGameResponse) {};
-  rpc Leave(LeaveGameRequest) returns (LeaveGameResponse) {};
-}
+  rpc Rejoin(RejoinGameRequest) returns (google.protobuf.Empty) {};
+  rpc Leave(LeaveGameRequest) returns (google.protobuf.Empty) {};
+  rpc StartPuzzle(StartPuzzleRequest) returns (google.protobuf.Empty) {};
 
-// PuzzleService
+  // streaming service
+  rpc Listen(ListenGameRequest) returns (stream GameNotification) {};
+}
