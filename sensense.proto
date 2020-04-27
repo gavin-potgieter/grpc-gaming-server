@@ -30,12 +30,12 @@ message LeaveGameRequest {
   string game_id = 2;
 }
 
-message ListenGameRequest {
+message ListenGame {
   string player_id = 1;
   string game_id = 2;
 }
 
-message GameNotification {
+message GameEvent {
   enum Type {
     PLAYER_COUNT_CHANGED = 0;
     PUZZLE_STARTED = 1;
@@ -47,7 +47,8 @@ message GameNotification {
 
 message StartPuzzleRequest {
   string game_id = 1;
-  string initial_conditions = 2;
+  string name = 2;
+  string initial_conditions = 3;
 }
 
 service GameService {
@@ -59,5 +60,24 @@ service GameService {
   rpc StartPuzzle(StartPuzzleRequest) returns (google.protobuf.Empty) {};
 
   // streaming service
-  rpc Listen(ListenGameRequest) returns (stream GameNotification) {};
+  rpc Listen(ListenGame) returns (stream GameEvent) {};
+}
+
+message PuzzleEvent {
+  enum Type {
+    DATA_INT = 0;
+    DATA_STRING = 1;
+  }
+  string puzzle_id = 1;
+  string player_id = 2;
+  Type type = 3;
+  string key = 4;
+  int32 value_int = 5;
+  string value_string = 6;
+  bool transient = 7;
+}
+
+service PuzzleService {
+  // streaming service
+  rpc Solve(stream PuzzleEvent) returns (stream PuzzleEvent) {};
 }

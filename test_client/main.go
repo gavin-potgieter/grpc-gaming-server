@@ -11,7 +11,7 @@ import (
 )
 
 func listen(gameService proto.GameServiceClient, gameID string, playerID string) {
-	stream, err := gameService.Listen(context.Background(), &proto.ListenGameRequest{
+	stream, err := gameService.Listen(context.Background(), &proto.ListenGame{
 		GameId:   gameID,
 		PlayerId: playerID,
 	})

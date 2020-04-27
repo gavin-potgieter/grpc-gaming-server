@@ -15,13 +15,16 @@ func serve() {
 	if err != nil {
 		log.Fatalf("Cannot listen to address %s", addr)
 	}
-
-	service, err := NewGameService()
+	puzzleService, err := NewPuzzleService()
+	if err != nil {
+		log.Fatalf("%v", err)
+	}
+	gameService, err := NewGameService(puzzleService)
 	if err != nil {
 		log.Fatalf("%v", err)
 	}
 	server := grpc.NewServer()
-	proto.RegisterGameServiceServer(server, service)
+	proto.RegisterGameServiceServer(server, gameService)
 	log.Printf("Starting server\n")
 	if err := server.Serve(conn); err != nil {
 		log.Fatalf("failed to serve: %v", err)
