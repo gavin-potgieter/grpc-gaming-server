@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gavin-potgieter/sensense-server/server/proto"
@@ -26,6 +27,7 @@ var (
 
 // GameService provides a running service instance
 type GameService struct {
+	gamesLock     sync.Mutex
 	gameCodes     map[int]*Game
 	games         map[uuid.UUID]*Game
 	puzzleService *PuzzleService
@@ -34,6 +36,7 @@ type GameService struct {
 // NewGameService creates a new GameService
 func NewGameService(ps *PuzzleService) (*GameService, error) {
 	return &GameService{
+		gamesLock:     sync.Mutex{},
 		gameCodes:     make(map[int]*Game, 0),
 		games:         make(map[uuid.UUID]*Game, 0),
 		puzzleService: ps,
@@ -73,8 +76,10 @@ func (service GameService) Create(context context.Context, request *proto.Create
 			request.PlayerId: &Player{ID: request.PlayerId},
 		},
 	}
+	service.gamesLock.Lock()
 	service.games[gameID] = game
 	service.gameCodes[code] = game
+	service.gamesLock.Unlock()
 	return &proto.CreateGameResponse{
 		GameCode: fmt.Sprintf("%06.f", float64(code)),
 		GameId:   gameID.String(),
@@ -97,7 +102,7 @@ func findMissingRole(players map[string]*Player) (Role, error) {
 	return Role(0), status.Errorf(codes.ResourceExhausted, "game_full")
 }
 
-func join(service *GameService, game *Game, playerID string) error {
+func (service *GameService) join(game *Game, playerID string) error {
 	if _, ok := game.Players[playerID]; ok {
 		return nil
 	}
@@ -108,6 +113,8 @@ func join(service *GameService, game *Game, playerID string) error {
 	if err != nil {
 		return err
 	}
+
+	game.Lock.Lock()
 	game.Players[playerID] = &Player{
 		ID:   playerID,
 		Role: role,
@@ -116,11 +123,12 @@ func join(service *GameService, game *Game, playerID string) error {
 		Type:  proto.GameEvent_PLAYER_COUNT_CHANGED,
 		Count: int32(len(game.Players)),
 	})
+	game.Lock.Unlock()
 	return nil
 }
 
 // Join allows a player to join the game
-func (service GameService) Join(context context.Context, request *proto.JoinGameRequest) (*proto.JoinGameResponse, error) {
+func (service *GameService) Join(context context.Context, request *proto.JoinGameRequest) (*proto.JoinGameResponse, error) {
 	Logger.Printf("INFO GameService joining; code:%v player:%v", request.GameCode, request.PlayerId)
 	if request.PlayerId == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid_player_id")
@@ -134,7 +142,7 @@ func (service GameService) Join(context context.Context, request *proto.JoinGame
 	if game, ok = service.gameCodes[gameCode]; !ok {
 		return nil, status.Errorf(codes.NotFound, "game_not_found")
 	}
-	err = join(&service, game, request.PlayerId)
+	err = service.join(game, request.PlayerId)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +152,7 @@ func (service GameService) Join(context context.Context, request *proto.JoinGame
 }
 
 // Rejoin allows a player to rejoin the game
-func (service GameService) Rejoin(context context.Context, request *proto.RejoinGameRequest) (*empty.Empty, error) {
+func (service *GameService) Rejoin(context context.Context, request *proto.RejoinGameRequest) (*empty.Empty, error) {
 	Logger.Printf("INFO GameService rejoining player:%v game:%v\n", request.PlayerId, request.GameId)
 	if request.PlayerId == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid_player_id")
@@ -154,21 +162,27 @@ func (service GameService) Rejoin(context context.Context, request *proto.Rejoin
 		return nil, err
 	}
 
-	err = join(&service, game, request.PlayerId)
+	err = service.join(game, request.PlayerId)
 	if err != nil {
 		return nil, err
 	}
 	return &empty.Empty{}, nil
 }
 
-func (service GameService) deleteGame(gameID uuid.UUID) {
+func (service *GameService) deleteGame(gameID uuid.UUID) {
+	Logger.Printf("DEBUG GameService delete game")
 	game := service.games[gameID]
+	if game == nil {
+		return
+	}
+	service.gamesLock.Lock()
 	delete(service.gameCodes, game.Code)
 	delete(service.games, game.ID)
+	service.gamesLock.Unlock()
 }
 
 // Leave allows players to cleanly leave a game
-func (service GameService) Leave(context context.Context, request *proto.LeaveGameRequest) (*empty.Empty, error) {
+func (service *GameService) Leave(context context.Context, request *proto.LeaveGameRequest) (*empty.Empty, error) {
 	Logger.Printf("INFO GameService leaving; game:%v player:%v", request.GameId, request.PlayerId)
 	if request.PlayerId == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid_player_id")
@@ -188,7 +202,7 @@ func (service GameService) Leave(context context.Context, request *proto.LeaveGa
 	return &empty.Empty{}, nil
 }
 
-func (service GameService) notify(game *Game, event *proto.GameEvent) {
+func (service *GameService) notify(game *Game, event *proto.GameEvent) {
 	for _, player := range game.Players {
 		if player.GameChannel != nil {
 			player.GameChannel <- event
@@ -196,11 +210,12 @@ func (service GameService) notify(game *Game, event *proto.GameEvent) {
 	}
 }
 
-func (service GameService) leave(game *Game, player *Player) {
+func (service *GameService) leave(game *Game, player *Player) {
 	if player.GameChannel != nil {
 		close(player.GameChannel)
 		player.GameChannel = nil
 	}
+	game.Lock.Lock()
 	delete(game.Players, player.ID)
 	if len(game.Players) == 0 {
 		service.deleteGame(game.ID)
@@ -210,9 +225,10 @@ func (service GameService) leave(game *Game, player *Player) {
 			Count: int32(len(game.Players)),
 		})
 	}
+	game.Lock.Unlock()
 }
 
-func handleStreamDisconnected(service *GameService, game *Game, player *Player) {
+func (service *GameService) handleStreamDisconnected(game *Game, player *Player) {
 	close(player.GameChannel)
 	player.GameChannel = nil
 	time.Sleep(PlayerRecoveryTime)
@@ -224,7 +240,7 @@ func handleStreamDisconnected(service *GameService, game *Game, player *Player) 
 	service.leave(game, player)
 }
 
-func (service GameService) getGame(id string) (*Game, error) {
+func (service *GameService) getGame(id string) (*Game, error) {
 	gameID, err := uuid.Parse(id)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid_game_id")
@@ -238,8 +254,8 @@ func (service GameService) getGame(id string) (*Game, error) {
 }
 
 // StartPuzzle starts a puzzle
-func (service GameService) StartPuzzle(context context.Context, request *proto.StartPuzzleRequest) (*empty.Empty, error) {
-	Logger.Printf("INFO GameService starting puzzle; game:%v", request.GameId)
+func (service *GameService) StartPuzzle(context context.Context, request *proto.StartPuzzleRequest) (*empty.Empty, error) {
+	Logger.Printf("INFO GameService starting puzzle; game:%v name:%v", request.GameId, request.Name)
 	if request.Name == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid_name")
 	}
@@ -251,20 +267,26 @@ func (service GameService) StartPuzzle(context context.Context, request *proto.S
 		return nil, status.Errorf(codes.FailedPrecondition, "insufficient_players")
 	}
 
+	game.Lock.Lock()
+	if game.PuzzleID != nil {
+		return nil, status.Errorf(codes.FailedPrecondition, "puzzle_in_progress")
+	}
 	puzzleID, err := service.puzzleService.CreatePuzzle(request.Name, request.InitialConditions, game.Players)
 	if err != nil {
 		return nil, err
 	}
+	game.PuzzleID = &puzzleID
 	service.notify(game, &proto.GameEvent{
 		Type:     proto.GameEvent_PUZZLE_STARTED,
 		PuzzleId: puzzleID.String(),
 	})
+	game.Lock.Unlock()
 
 	return &empty.Empty{}, nil
 }
 
 // Listen allows a client to listen for game notifications
-func (service GameService) Listen(request *proto.ListenGame, stream proto.GameService_ListenServer) error {
+func (service *GameService) Listen(request *proto.ListenGame, stream proto.GameService_ListenServer) error {
 	Logger.Printf("INFO GameService listening; game:%v player:%v", request.GameId, request.PlayerId)
 	if request.PlayerId == "" {
 		return status.Errorf(codes.InvalidArgument, "invalid_player_id")
@@ -284,10 +306,10 @@ func (service GameService) Listen(request *proto.ListenGame, stream proto.GameSe
 		Count: int32(len(game.Players)),
 	})
 	// on listen (if a puzzle is running), send the puzzle identifier (recovery logic)
-	if game.CurrentPuzzle != nil {
+	if game.PuzzleID != nil {
 		stream.Send(&proto.GameEvent{
 			Type:     proto.GameEvent_PUZZLE_STARTED,
-			PuzzleId: game.CurrentPuzzle.ID.String(),
+			PuzzleId: game.PuzzleID.String(),
 		})
 	}
 
@@ -301,12 +323,12 @@ func (service GameService) Listen(request *proto.ListenGame, stream proto.GameSe
 			err := stream.Send(event)
 			if err != nil {
 				Logger.Printf("WARN GameService event send failed; game:%v player:%v", game.ID, player.ID)
-				go handleStreamDisconnected(&service, game, player)
+				go service.handleStreamDisconnected(game, player)
 				return status.Errorf(codes.DataLoss, "listener_aborted")
 			}
 		case <-stream.Context().Done():
 			Logger.Printf("WARN GameService connection disconnected by client; game:%v player:%v", game.ID, player.ID)
-			go handleStreamDisconnected(&service, game, player)
+			go service.handleStreamDisconnected(game, player)
 			return nil
 		}
 	}

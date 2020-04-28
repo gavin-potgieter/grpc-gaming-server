@@ -48,7 +48,8 @@ message GameEvent {
 message StartPuzzleRequest {
   string game_id = 1;
   string name = 2;
-  string initial_conditions = 3;
+  int32 time = 3;
+  string initial_conditions = 4;
 }
 
 service GameService {

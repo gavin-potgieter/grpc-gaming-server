@@ -1,6 +1,8 @@
 package main
 
 import (
+	"sync"
+
 	"github.com/gavin-potgieter/sensense-server/server/proto"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -9,13 +11,15 @@ import (
 
 // PuzzleService provides a running service instance
 type PuzzleService struct {
-	puzzles map[uuid.UUID]*Puzzle
+	puzzlesLock sync.Mutex
+	puzzles     map[uuid.UUID]*Puzzle
 }
 
 // NewPuzzleService creates a new puzzle service
 func NewPuzzleService() (*PuzzleService, error) {
 	return &PuzzleService{
-		puzzles: make(map[uuid.UUID]*Puzzle),
+		puzzles:     make(map[uuid.UUID]*Puzzle),
+		puzzlesLock: sync.Mutex{},
 	}, nil
 }
 
@@ -26,7 +30,7 @@ func cycleRoles(players map[string]*Player) {
 }
 
 // CreatePuzzle creates a puzzle given the puzzle name and initial conditions, cycling the player roles automatically
-func (service PuzzleService) CreatePuzzle(name string, initialConditions string, players map[string]*Player) (uuid.UUID, error) {
+func (service *PuzzleService) CreatePuzzle(name string, initialConditions string, players map[string]*Player) (uuid.UUID, error) {
 	puzzleID, err := uuid.NewRandom()
 	if err != nil {
 		return puzzleID, status.Errorf(codes.Internal, "puzzle_creation_failed")
@@ -44,10 +48,13 @@ func (service PuzzleService) CreatePuzzle(name string, initialConditions string,
 
 	cycleRoles(puzzle.Players)
 
+	service.puzzlesLock.Lock()
 	service.puzzles[puzzleID] = puzzle
+	service.puzzlesLock.Unlock()
+
 	return puzzle.ID, nil
 }
 
-func (service PuzzleService) Solve(proto.PuzzleService_SolveServer) error {
+func (service *PuzzleService) Solve(proto.PuzzleService_SolveServer) error {
 	return status.Errorf(codes.Unimplemented, "method Solve not implemented")
 }

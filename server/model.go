@@ -1,6 +1,7 @@
 package main
 
 import (
+	"sync"
 	"time"
 
 	"github.com/gavin-potgieter/sensense-server/server/proto"
@@ -24,8 +25,12 @@ const (
 	InitialConditionsKey = "INCO"
 	// RoleKey is the key for the role event
 	RoleKey = "ROLE"
-	// ResultKey is the key for the result event
+	// ResultKey is the key for the result of the puzzle event
 	ResultKey = "RSLT"
+	// NameKey is the key for the name of the puzzle event
+	NameKey = "NAME"
+	// TimeKey is the key for the seconds remaining event
+	TimeKey = "TIME"
 )
 
 // Role is a sensense player role for a puzzle
@@ -41,10 +46,11 @@ type Player struct {
 
 // Game is a running instance of a sensense game
 type Game struct {
-	Code          int
-	CurrentPuzzle *Puzzle
-	ID            uuid.UUID
-	Players       map[string]*Player
+	Code     int
+	PuzzleID *uuid.UUID
+	ID       uuid.UUID
+	Lock     sync.Mutex
+	Players  map[string]*Player
 }
 
 // Puzzle is a running instance of a game level
@@ -52,5 +58,6 @@ type Puzzle struct {
 	ID                uuid.UUID
 	InitialConditions string
 	Name              string
+	Lock              sync.Mutex
 	Players           map[string]*Player
 }

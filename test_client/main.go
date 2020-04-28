@@ -1,89 +1,60 @@
 package main
 
 import (
-	"context"
-	"fmt"
+	"log"
 	"os"
+	"path"
+	"sync"
 	"time"
-
-	"github.com/gavin-potgieter/sensense-server/test_client/proto"
-	"google.golang.org/grpc"
 )
 
-func listen(gameService proto.GameServiceClient, gameID string, playerID string) {
-	stream, err := gameService.Listen(context.Background(), &proto.ListenGame{
-		GameId:   gameID,
-		PlayerId: playerID,
-	})
-	if err != nil {
-		fmt.Printf("%v\n", err)
-		return
-	}
-	for {
-		notification, err := stream.Recv()
-		if err != nil {
-			fmt.Printf("%v\n", err)
-			return
-		}
-		fmt.Printf("%+v\n", notification)
-	}
-}
+var (
+	_, filename = path.Split(os.Args[0])
+	// Logger is the default logger
+	Logger = log.New(os.Stdout, filename+" ", log.LstdFlags)
+	// GameCode the game code
+	GameCode string
+)
 
 func main() {
-	conn, err := grpc.Dial("localhost:50051", grpc.WithInsecure())
+	var group sync.WaitGroup
+	group.Add(3)
+
+	railway := NewRailway()
+
+	player1, err := NewPlayer1(railway)
 	if err != nil {
-		fmt.Printf("%v\n", err)
-		os.Exit(-1)
+		Logger.Printf("ERROR %v %v", player1.Player.PlayerID, err)
 	}
-	defer conn.Close()
-
-	gameService := proto.NewGameServiceClient(conn)
-	response1, err := gameService.Create(context.Background(), &proto.CreateGameRequest{
-		PlayerId: "player_1",
-	})
+	player2, err := NewPlayer2(railway)
 	if err != nil {
-		fmt.Printf("%v\n", err)
-		os.Exit(-1)
+		Logger.Printf("ERROR %v %v", player1.Player.PlayerID, err)
 	}
-	fmt.Printf("Created %+v\n", response1)
-
-	go listen(gameService, response1.GameId, "player_1")
-
-	time.Sleep(1 * time.Second)
-
-	response2, err := gameService.Join(context.Background(), &proto.JoinGameRequest{
-		PlayerId: "player_2",
-		GameCode: response1.GameCode,
-	})
+	player3, err := NewPlayer3(railway)
 	if err != nil {
-		fmt.Printf("%v\n", err)
-		os.Exit(-1)
+		Logger.Printf("ERROR %v %v", player1.Player.PlayerID, err)
 	}
-	fmt.Printf("Joined %+v\n", response2)
 
-	go listen(gameService, response1.GameId, "player_2")
+	go func() {
+		err := player1.Interact(&group)
+		if err != nil {
+			Logger.Printf("ERROR %v %v", player1.Player.PlayerID, err)
+		}
+	}()
+	go func() {
+		err := player2.Interact(&group)
+		if err != nil {
+			Logger.Printf("ERROR %v %v", player2.Player.PlayerID, err)
+		}
+	}()
+	go func() {
+		err := player3.Interact(&group)
+		if err != nil {
+			Logger.Printf("ERROR %v %v", player3.Player.PlayerID, err)
+		}
+	}()
 
-	time.Sleep(1 * time.Second)
+	group.Wait()
 
-	response3, err := gameService.Rejoin(context.Background(), &proto.RejoinGameRequest{
-		PlayerId: "player_2",
-		GameId:   response2.GameId,
-	})
-	if err != nil {
-		fmt.Printf("%v\n", err)
-		os.Exit(-1)
-	}
-	fmt.Printf("Rejoined %+v\n", response3)
-
-	response4, err := gameService.Leave(context.Background(), &proto.LeaveGameRequest{
-		PlayerId: "player_2",
-		GameId:   response2.GameId,
-	})
-	if err != nil {
-		fmt.Printf("%v\n", err)
-		os.Exit(-1)
-	}
-	fmt.Printf("Left %+v\n", response4)
-
-	time.Sleep(5 * time.Second)
+	time.Sleep(500 * time.Millisecond)
 }
