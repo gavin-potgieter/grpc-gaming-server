@@ -54,7 +54,7 @@ func isDuplicate(service *GameService, gameCode int) bool {
 }
 
 // Create creates a new game
-func (service GameService) Create(context context.Context, request *proto.CreateGameRequest) (*proto.CreateGameResponse, error) {
+func (service *GameService) Create(context context.Context, request *proto.CreateGameRequest) (*proto.CreateGameResponse, error) {
 	Logger.Printf("INFO GameService creating; player:%v", request.PlayerId)
 	if request.PlayerId == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid_player_id")
@@ -65,15 +65,16 @@ func (service GameService) Create(context context.Context, request *proto.Create
 	}
 
 	code := 0
-	for code = createGameCode(); isDuplicate(&service, code); code = createGameCode() {
+	for code = createGameCode(); isDuplicate(service, code); code = createGameCode() {
 		// pass
 	}
 
+	role, _ := rand.Int(rand.Reader, big.NewInt(3))
 	game := &Game{
 		Code: code,
 		ID:   gameID,
 		Players: map[string]*Player{
-			request.PlayerId: &Player{ID: request.PlayerId},
+			request.PlayerId: NewPlayer(request.PlayerId, Role(role.Int64())),
 		},
 	}
 	service.gamesLock.Lock()
@@ -115,10 +116,7 @@ func (service *GameService) join(game *Game, playerID string) error {
 	}
 
 	game.Lock.Lock()
-	game.Players[playerID] = &Player{
-		ID:   playerID,
-		Role: role,
-	}
+	game.Players[playerID] = NewPlayer(playerID, role)
 	service.notify(game, &proto.GameEvent{
 		Type:  proto.GameEvent_PLAYER_COUNT_CHANGED,
 		Count: int32(len(game.Players)),
@@ -204,17 +202,22 @@ func (service *GameService) Leave(context context.Context, request *proto.LeaveG
 
 func (service *GameService) notify(game *Game, event *proto.GameEvent) {
 	for _, player := range game.Players {
+		player.GameChannelLock.RLock()
 		if player.GameChannel != nil {
 			player.GameChannel <- event
 		}
+		player.GameChannelLock.RUnlock()
 	}
 }
 
 func (service *GameService) leave(game *Game, player *Player) {
+	player.GameChannelLock.Lock()
 	if player.GameChannel != nil {
 		close(player.GameChannel)
 		player.GameChannel = nil
 	}
+	player.GameChannelLock.Unlock()
+
 	game.Lock.Lock()
 	delete(game.Players, player.ID)
 	if len(game.Players) == 0 {
@@ -229,8 +232,13 @@ func (service *GameService) leave(game *Game, player *Player) {
 }
 
 func (service *GameService) handleStreamDisconnected(game *Game, player *Player) {
-	close(player.GameChannel)
+	player.GameChannelLock.Lock()
+	if player.GameChannel != nil {
+		close(player.GameChannel)
+	}
 	player.GameChannel = nil
+	player.GameChannelLock.Unlock()
+
 	time.Sleep(PlayerRecoveryTime)
 	if player.GameChannel != nil {
 		Logger.Printf("INFO GameService recovered player; game:%v player:%v", game.ID, player.ID)
@@ -259,6 +267,9 @@ func (service *GameService) StartPuzzle(context context.Context, request *proto.
 	if request.Name == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid_name")
 	}
+	if request.Time <= 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid_time")
+	}
 	game, err := service.getGame(request.GameId)
 	if err != nil {
 		return nil, err
@@ -271,7 +282,10 @@ func (service *GameService) StartPuzzle(context context.Context, request *proto.
 	if game.PuzzleID != nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "puzzle_in_progress")
 	}
-	puzzleID, err := service.puzzleService.CreatePuzzle(request.Name, request.InitialConditions, game.Players)
+	puzzleID, err := service.puzzleService.CreatePuzzle(request.Name, request.InitialConditions, int(request.Time), game.Players, func() {
+		Logger.Printf("INFO GameService ending puzzle; game:%v name:%v", request.GameId, request.Name)
+		game.PuzzleID = nil
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +327,9 @@ func (service *GameService) Listen(request *proto.ListenGame, stream proto.GameS
 		})
 	}
 
-	player.GameChannel = make(chan *proto.GameEvent, 0)
+	player.GameChannelLock.Lock()
+	player.GameChannel = make(chan *proto.GameEvent)
+	player.GameChannelLock.Unlock()
 	for {
 		select {
 		case event, ok := <-player.GameChannel:

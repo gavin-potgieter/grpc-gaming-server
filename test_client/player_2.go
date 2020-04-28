@@ -32,6 +32,14 @@ func (player2 *Player2) callback(event *proto.GameEvent) error {
 				return err
 			}
 		}
+	case proto.GameEvent_PUZZLE_STARTED:
+		PuzzleID = event.PuzzleId
+		go func() {
+			err := player2.Player.ListenPuzzle(nil, nil)
+			if err != nil {
+				Logger.Printf("ERROR %v %v\n", player2.Player.PlayerID, err)
+			}
+		}()
 	}
 	return nil
 }

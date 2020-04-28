@@ -25,6 +25,7 @@ func serve() {
 	}
 	server := grpc.NewServer()
 	proto.RegisterGameServiceServer(server, gameService)
+	proto.RegisterPuzzleServiceServer(server, puzzleService)
 	log.Printf("Starting server\n")
 	if err := server.Serve(conn); err != nil {
 		log.Fatalf("failed to serve: %v", err)

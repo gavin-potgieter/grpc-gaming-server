@@ -66,8 +66,9 @@ service GameService {
 
 message PuzzleEvent {
   enum Type {
-    DATA_INT = 0;
-    DATA_STRING = 1;
+    DATA_NONE = 0;
+    DATA_INT = 1;
+    DATA_STRING = 2;
   }
   string puzzle_id = 1;
   string player_id = 2;

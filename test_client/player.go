@@ -9,15 +9,20 @@ import (
 )
 
 type Player struct {
-	GameID         string
-	PlayerID       string
-	gameConnection *grpc.ClientConn
-	gameService    proto.GameServiceClient
+	GameID           string
+	PlayerID         string
+	gameConnection   *grpc.ClientConn
+	gameService      proto.GameServiceClient
+	puzzleConnection *grpc.ClientConn
+	puzzleService    proto.PuzzleServiceClient
 }
 
 type GameEventCallback func(*proto.GameEvent) error
 
-// ConnectGame is used to create the game
+type PuzzleEventCallback func(*proto.PuzzleEvent) error
+
+// connectGame is used to create the game; the only reason connections are
+// being created twice is to allow for testing
 func (player *Player) connectGame() error {
 	if player.gameConnection != nil {
 		return nil
@@ -29,6 +34,22 @@ func (player *Player) connectGame() error {
 
 	player.gameConnection = conn
 	player.gameService = proto.NewGameServiceClient(conn)
+	return nil
+}
+
+// connectPuzzle is used to create the puzzle; the only reason connections are
+// being created twice is to allow for testing
+func (player *Player) connectPuzzle() error {
+	if player.puzzleConnection != nil {
+		return nil
+	}
+	conn, err := grpc.Dial("localhost:50051", grpc.WithInsecure())
+	if err != nil {
+		return err
+	}
+
+	player.puzzleConnection = conn
+	player.puzzleService = proto.NewPuzzleServiceClient(conn)
 	return nil
 }
 
@@ -168,10 +189,49 @@ func (player *Player) StartPuzzle() error {
 		GameId:            player.GameID,
 		Name:              "a puzzle",
 		InitialConditions: "some initial conditions",
+		Time:              10,
 	})
 	if err != nil {
 		return err
 	}
 	Logger.Printf("INFO %v started puzzle; game_id: %v", player.PlayerID, player.GameID)
 	return nil
+}
+
+func (player *Player) ListenPuzzle(group *sync.WaitGroup, callback PuzzleEventCallback) error {
+	if group != nil {
+		defer group.Done()
+	}
+
+	err := player.connectPuzzle()
+	if err != nil {
+		return err
+	}
+
+	stream, err := player.puzzleService.Solve(context.Background())
+	if err != nil {
+		return err
+	}
+	err = stream.Send(&proto.PuzzleEvent{
+		PlayerId: player.PlayerID,
+		PuzzleId: PuzzleID,
+	})
+	if err != nil {
+		return err
+	}
+	Logger.Printf("INFO %v listening to puzzle; puzzle_id: %v", player.PlayerID, PuzzleID)
+	for {
+		event, err := stream.Recv()
+		if err != nil {
+			return err
+		}
+		Logger.Printf("INFO %v %+v\n", player.PlayerID, event)
+		if callback == nil {
+			continue
+		}
+		err = callback(event)
+		if err != nil {
+			return err
+		}
+	}
 }

@@ -14,6 +14,7 @@ var (
 	Logger = log.New(os.Stdout, filename+" ", log.LstdFlags)
 	// GameCode the game code
 	GameCode string
+	PuzzleID string
 )
 
 func main() {
