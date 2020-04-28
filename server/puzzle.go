@@ -75,6 +75,10 @@ func (service *PuzzleService) getPuzzle(id string) (*Puzzle, error) {
 	return puzzle, nil
 }
 
+// initializeStream sets up a player that is joining a puzzle, it does the following:
+// 1. it creates the channel
+// 2. it sends events with the name, intial conditions, player role to the player joining
+// 3. Once there are enough players it sends the all aboard and remaining time events to all players
 func (service *PuzzleService) initializeStream(stream proto.PuzzleService_SolveServer) (*Puzzle, *Player, error) {
 	initialEvent, err := stream.Recv()
 	if err != nil || initialEvent.Type != proto.PuzzleEvent_DATA_NONE {
@@ -93,14 +97,16 @@ func (service *PuzzleService) initializeStream(stream proto.PuzzleService_SolveS
 	if player, ok = puzzle.Players[initialEvent.PlayerId]; !ok {
 		return nil, nil, status.Errorf(codes.InvalidArgument, "invalid_player_id")
 	}
+	puzzle.Lock.Lock() // ensures that the game hasn't ended, and only the last player unpauses the game
+	defer puzzle.Lock.Unlock()
 	if puzzle.timeRemaining <= 0 {
 		return nil, nil, status.Errorf(codes.FailedPrecondition, "puzzle_ended")
 	}
-	puzzle.Lock.Lock()
 	player.PuzzleChannelLock.Lock()
-	player.PuzzleChannel = make(chan *proto.PuzzleEvent, 10)
+	player.PuzzleChannel = make(chan *proto.PuzzleEvent, 10) // 0 channels block if there are no receivers
 	player.PuzzleChannelLock.Unlock()
 
+	// these sends don't need to be locked, but we would like the stream order to be consistent
 	stream.Send(&proto.PuzzleEvent{
 		Type:        proto.PuzzleEvent_DATA_STRING,
 		Key:         NameKey,
@@ -116,6 +122,7 @@ func (service *PuzzleService) initializeStream(stream proto.PuzzleService_SolveS
 		Key:      RoleKey,
 		ValueInt: int32(player.Role),
 	})
+	// these DO need to be locked, because the paused function is driven by the number of active player channels
 	if !puzzle.Paused() {
 		service.notify(puzzle, &proto.PuzzleEvent{
 			Type:     proto.PuzzleEvent_DATA_INT,
@@ -126,18 +133,24 @@ func (service *PuzzleService) initializeStream(stream proto.PuzzleService_SolveS
 			Key: AllAboardKey,
 		})
 	}
-	puzzle.Lock.Unlock()
 	return puzzle, player, nil
 }
 
+// endPuzzle ends the current puzzle by:
+// 1. stopping the puzzle ticker
+// 2. closing all player channels (causes disconnection of player streams)
+// 3. removing the puzzle from the active puzzles
 func (service *PuzzleService) endPuzzle(puzzle *Puzzle) {
-	service.puzzlesLock.Lock()
+	service.puzzlesLock.Lock() // ensure only one player ends the puzzle - pessimistic
 	defer service.puzzlesLock.Unlock()
+
+	// checks that the puzzle has not already been ended
 	if _, ok := service.puzzles[puzzle.ID]; !ok {
 		return
 	}
+
 	Logger.Printf("INFO PuzzleService ending puzzle; puzzle:%v", puzzle.ID)
-	puzzle.Lock.Lock()
+	puzzle.Lock.Lock() // ensures
 	if puzzle.ticker != nil {
 		puzzle.ticker.Stop()
 		puzzle.ticker = nil
@@ -250,6 +263,7 @@ func (service *PuzzleService) streamSend(stream proto.PuzzleService_SolveServer,
 	}
 }
 
+// streamReceive is a goroutine
 func (service *PuzzleService) streamReceive(stream proto.PuzzleService_SolveServer, puzzle *Puzzle, player *Player) error {
 	for {
 		event, err := stream.Recv()
