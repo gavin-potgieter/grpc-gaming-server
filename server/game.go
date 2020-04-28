@@ -110,12 +110,12 @@ func (service *GameService) join(game *Game, playerID string) error {
 	if len(game.Players) >= PlayerLimit {
 		return status.Errorf(codes.ResourceExhausted, "game_full")
 	}
+	game.Lock.Lock()
 	role, err := findMissingRole(game.Players)
 	if err != nil {
 		return err
 	}
 
-	game.Lock.Lock()
 	game.Players[playerID] = NewPlayer(playerID, role)
 	service.notify(game, &proto.GameEvent{
 		Type:  proto.GameEvent_PLAYER_COUNT_CHANGED,
@@ -214,8 +214,8 @@ func (service *GameService) leave(game *Game, player *Player) {
 	player.GameChannelLock.Lock()
 	if player.GameChannel != nil {
 		close(player.GameChannel)
-		player.GameChannel = nil
 	}
+	player.GameChannel = nil
 	player.GameChannelLock.Unlock()
 
 	game.Lock.Lock()

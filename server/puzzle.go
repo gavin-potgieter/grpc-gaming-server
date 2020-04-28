@@ -205,10 +205,7 @@ func (service *PuzzleService) notify(puzzle *Puzzle, event *proto.PuzzleEvent) {
 	for _, player := range puzzle.Players {
 		player.PuzzleChannelLock.RLock()
 		playerHasAnOpenChannel := player.PuzzleChannel != nil
-		// send the end game event to all players, otherwise don't send event to the player who originated it
-		playerQualifiesForMessage := event.Key == ResultKey || player.ID != event.PlayerId
-
-		if playerHasAnOpenChannel && playerQualifiesForMessage {
+		if playerHasAnOpenChannel {
 			event.PlayerId = ""
 			player.PuzzleChannel <- event
 		}
