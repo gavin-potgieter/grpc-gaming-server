@@ -19,6 +19,8 @@ import (
 // GameService provides a running service instance. There is only one service
 // instance so critical section management is required in the remaining code.
 // All completed games must be removed or there will be a memory leak.
+// TODO: apparently, one does not receive an error when the client tcp connection
+// fails... solution add a timed keepalive request to ping the client for signs of life.
 type GameService struct {
 	gamesLock     sync.Mutex          // the lock to serialize modification of the active games
 	gameCodes     map[int]*Game       // the active games [by code for search optimization] (for all players in all games)
@@ -212,14 +214,19 @@ func (service *GameService) notify(game *Game, event *proto.GameEvent) {
 	}
 }
 
-// leave is a shared function for when a player leaves cleanly or uncleanly
-func (service *GameService) leave(game *Game, player *Player) {
+// closeGameChannel utility closes the game channel
+func (service *GameService) closeGameChannel(player *Player) {
 	player.GameChannelLock.Lock()
+	defer player.GameChannelLock.Unlock()
 	if player.GameChannel != nil {
 		close(player.GameChannel)
 	}
 	player.GameChannel = nil
-	player.GameChannelLock.Unlock()
+}
+
+// leave is a shared function for when a player leaves cleanly or uncleanly
+func (service *GameService) leave(game *Game, player *Player) {
+	service.closeGameChannel(player)
 
 	game.Lock.Lock()
 	delete(game.Players, player.ID)
@@ -241,13 +248,7 @@ func (service *GameService) leave(game *Game, player *Player) {
 // TODO: future might prefer to add a context with a cancellation so that the recovery window
 // can be aborted on a reconnect
 func (service *GameService) handleStreamDisconnected(game *Game, player *Player) {
-	player.GameChannelLock.Lock()
-	if player.GameChannel != nil {
-		close(player.GameChannel)
-	}
-	player.GameChannel = nil
-	player.GameChannelLock.Unlock()
-
+	service.closeGameChannel(player)
 	time.Sleep(PlayerRecoveryTime)
 	if player.GameChannel != nil {
 		Logger.Printf("INFO GameService recovered player; game:%v player:%v", game.ID, player.ID)

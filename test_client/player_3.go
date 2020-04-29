@@ -2,28 +2,27 @@ package main
 
 import (
 	"sync"
+	"time"
 )
 
 type Player3 struct {
-	Player  *Player
-	Railway *Railway
+	Player *Player
 }
 
 func NewPlayer3(railway *Railway) (*Player3, error) {
-	player, err := NewPlayer("player_3")
+	player, err := NewPlayer("player_3", railway)
 	if err != nil {
 		return nil, err
 	}
 	return &Player3{
-		Player:  player,
-		Railway: railway,
+		Player: player,
 	}, nil
 }
 
 func (player3 *Player3) Interact(group *sync.WaitGroup) error {
-	player3.Railway.GameCreatedSignal.L.Lock()
-	player3.Railway.GameCreatedSignal.Wait()
-	player3.Railway.GameCreatedSignal.L.Unlock()
+	player3.Player.Railway.GameCreatedSignal.L.Lock()
+	player3.Player.Railway.GameCreatedSignal.Wait()
+	player3.Player.Railway.GameCreatedSignal.L.Unlock()
 
 	err := player3.Player.JoinGame()
 	if err != nil {
@@ -37,9 +36,25 @@ func (player3 *Player3) Interact(group *sync.WaitGroup) error {
 		}
 	}()
 
-	player3.Railway.GameEndedSignal.L.Lock()
-	player3.Railway.GameEndedSignal.Wait()
-	player3.Railway.GameEndedSignal.L.Unlock()
+	player3.Player.Railway.FirstPuzzleEnded.Lock()
+
+	time.Sleep(1 * time.Second)
+
+	err = player3.Player.StartPuzzle("P2", 10)
+	if err != nil {
+		return err
+	}
+
+	player3.Player.Railway.SecondPuzzleEnded.Lock()
+
+	player3.Player.Railway.GameEndedSignal.L.Lock()
+	player3.Player.Railway.GameEndedSignal.Broadcast()
+	player3.Player.Railway.GameEndedSignal.L.Unlock()
+
+	err = player3.Player.Leave()
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

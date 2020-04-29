@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/gavin-potgieter/sensense-server/test_client/proto"
 	"google.golang.org/grpc"
@@ -14,11 +15,15 @@ const (
 	Mute  = 2
 )
 
+// BEWARE: this client code has a known issue where the player who disconnects
+// from the second puzzle and waits 5 seconds after recovery, sometimes delays
+// their message receiving. Sometimes the end falls over.
 type Player struct {
 	GameID           string
 	PlayerID         string
 	Role             int
 	PuzzleName       string
+	Railway          *Railway
 	gameConnection   *grpc.ClientConn
 	gameService      proto.GameServiceClient
 	puzzleConnection *grpc.ClientConn
@@ -49,9 +54,6 @@ func (player *Player) connectGame() error {
 // connectPuzzle is used to create the puzzle; the only reason connections are
 // being created twice is to allow for testing
 func (player *Player) connectPuzzle() error {
-	if player.puzzleConnection != nil {
-		return nil
-	}
 	conn, err := grpc.Dial("localhost:50051", grpc.WithInsecure())
 	if err != nil {
 		return err
@@ -59,6 +61,9 @@ func (player *Player) connectPuzzle() error {
 
 	player.puzzleConnection = conn
 	player.puzzleService = proto.NewPuzzleServiceClient(conn)
+	player.eventChannel = make(chan *proto.PuzzleEvent, 10)
+	//Logger.Printf("DEBUG create event channel %v", player.PlayerID)
+
 	return nil
 }
 
@@ -73,11 +78,26 @@ func (player *Player) DisconnectGame() error {
 	return nil
 }
 
-func NewPlayer(playerID string) (*Player, error) {
+// DisconnectPuzzle is used to simulate bad network connectivity
+func (player *Player) DisconnectPuzzle() error {
+	err := player.puzzleConnection.Close()
+	if err != nil {
+		return err
+	}
+
+	close(player.eventChannel)
+	//Logger.Printf("DEBUG delete event channel %v", player.PlayerID)
+	player.puzzleConnection = nil
+	player.puzzleService = nil
+
+	return nil
+}
+
+func NewPlayer(playerID string, railway *Railway) (*Player, error) {
 	player := &Player{
-		PlayerID:     playerID,
-		eventChannel: make(chan *proto.PuzzleEvent, 10),
-		Role:         -1,
+		PlayerID: playerID,
+		Railway:  railway,
+		Role:     -1,
 	}
 	err := player.connectGame()
 	if err != nil {
@@ -167,10 +187,7 @@ func (player *Player) ListenGame(group *sync.WaitGroup, callback GameEventCallba
 		case proto.GameEvent_PUZZLE_STARTED:
 			PuzzleID = event.PuzzleId
 			go func() {
-				err := player.ListenPuzzle(0)
-				if err != nil {
-					Logger.Printf("ERROR %v %v\n", player.PlayerID, err)
-				}
+				player.ListenPuzzle(0)
 			}()
 		}
 		Logger.Printf("INFO %v %+v\n", player.PlayerID, event)
@@ -244,6 +261,7 @@ func (player *Player) ListenPuzzle(sequence int) error {
 		for {
 			event, ok := <-player.eventChannel
 			if !ok {
+				Logger.Printf("INFO channel closed %v\n", player.PlayerID)
 				return
 			}
 			stream.Send(event)
@@ -254,6 +272,9 @@ func (player *Player) ListenPuzzle(sequence int) error {
 	for {
 		event, err := stream.Recv()
 		if err != nil {
+			stream.CloseSend()
+			time.Sleep(1 * time.Second)
+			Logger.Printf("ERROR %v %v\n", player.PlayerID, err)
 			return err
 		}
 		Logger.Printf("INFO %v %+v\n", player.PlayerID, event)
@@ -264,6 +285,13 @@ func (player *Player) ListenPuzzle(sequence int) error {
 			player.SendFirstPuzzleEvent()
 		case "NAME":
 			player.PuzzleName = event.ValueString
+		case "RSLT":
+			if player.PuzzleName == "P1" && player.Role == Deaf {
+				player.Railway.FirstPuzzleEnded.Unlock()
+			}
+			if player.PuzzleName == "P2" && player.Role == Deaf {
+				player.Railway.SecondPuzzleEnded.Unlock()
+			}
 		default:
 			player.ProcessPuzzleEvent(event)
 		}
@@ -281,7 +309,9 @@ func (player *Player) SendFirstPuzzleEvent() {
 			player.SendStringEvent("wave", true) //0
 		}
 	case "P2":
-
+		if player.Role == Deaf {
+			player.SendStringEvent("gulp", true) //0
+		}
 	}
 }
 
@@ -315,9 +345,46 @@ func (player *Player) ProcessPuzzleEvent(event *proto.PuzzleEvent) {
 			if player.Role == Deaf {
 				player.Win()
 			}
-
 		}
 	case "P2":
+		switch event.Sequence {
+		case 0:
+			if player.Role == Blind {
+				player.SendStringEvent("tapped", false)
+				player.SendStringEvent("held", true) //1
+			}
+		case 1:
+			if player.Role == Mute {
+				player.SendStringEvent("twiddled knob", true)         //2
+				player.SendStringEvent("twiddled another knob", true) //3
+			}
+		case 3:
+			if player.Role == Mute {
+				time.Sleep(4 * time.Second)
+				player.DisconnectPuzzle()
+				time.Sleep(3 * time.Second)
+				go func() {
+					err := player.ListenPuzzle(4)
+					if err != nil {
+						Logger.Printf("ERROR %v %v\n", player.PlayerID, err)
+					}
+				}()
+			}
+			if player.Role == Deaf {
+				player.SendStringEvent("swiped up", true)   //4
+				player.SendStringEvent("swiped down", true) //5
+			}
+
+		case 5:
+			if player.Role == Mute {
+				time.Sleep(5 * time.Second)
+				player.SendStringEvent("recovered", true) //6
+			}
+		case 6:
+			if player.Role == Blind {
+				player.Abort()
+			}
+		}
 	}
 
 }

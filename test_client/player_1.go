@@ -6,18 +6,16 @@ import (
 )
 
 type Player1 struct {
-	Player  *Player
-	Railway *Railway
+	Player *Player
 }
 
 func NewPlayer1(railway *Railway) (*Player1, error) {
-	player, err := NewPlayer("player_1")
+	player, err := NewPlayer("player_1", railway)
 	if err != nil {
 		return nil, err
 	}
 	return &Player1{
-		Player:  player,
-		Railway: railway,
+		Player: player,
 	}, nil
 }
 
@@ -34,15 +32,15 @@ func (player1 *Player1) Interact(group *sync.WaitGroup) error {
 		}
 	}()
 
-	player1.Railway.GameCreatedSignal.L.Lock()
-	player1.Railway.GameCreatedSignal.Broadcast()
-	player1.Railway.GameCreatedSignal.L.Unlock()
+	player1.Player.Railway.GameCreatedSignal.L.Lock()
+	player1.Player.Railway.GameCreatedSignal.Broadcast()
+	player1.Player.Railway.GameCreatedSignal.L.Unlock()
 
 	time.Sleep(5 * time.Second)
 
-	player1.Railway.GameEndedSignal.L.Lock()
-	player1.Railway.GameEndedSignal.Wait()
-	player1.Railway.GameEndedSignal.L.Unlock()
+	player1.Player.Railway.GameEndedSignal.L.Lock()
+	player1.Player.Railway.GameEndedSignal.Wait()
+	player1.Player.Railway.GameEndedSignal.L.Unlock()
 
 	err = player1.Player.Leave()
 	if err != nil {

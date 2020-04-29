@@ -92,6 +92,31 @@ func createPuzzleChannel(player *Player) error {
 	return nil
 }
 
+// closePuzzleChannel closes the puzzle channel
+func closePuzzleChannel(player *Player) {
+	player.PuzzleChannelLock.Lock()
+	defer player.PuzzleChannelLock.Unlock()
+	if player.PuzzleChannel == nil {
+		return
+	}
+	Logger.Printf("INFO PuzzleService closing channel; player:%v", player.ID)
+	close(player.PuzzleChannel)
+	player.PuzzleChannel = nil
+}
+
+// replayHistory replays the history
+func replayHistory(stream proto.PuzzleService_SolveServer, initialEvent *proto.PuzzleEvent, puzzle *Puzzle) error {
+	puzzle.historyLock.Lock()
+	defer puzzle.historyLock.Unlock()
+	for i := initialEvent.ValueInt; i < int32(len(puzzle.history)); i++ {
+		err := stream.Send(puzzle.history[i])
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // initializeStream sets up a player that is joining a puzzle, it does the following:
 // 1. it creates the channel
 // 2. it sends events with the name, intial conditions, player role to the player joining
@@ -128,21 +153,36 @@ func (service *PuzzleService) initializeStream(stream proto.PuzzleService_SolveS
 	}
 
 	// these sends don't need to be locked, but we would like the stream order to be consistent
-	stream.Send(&proto.PuzzleEvent{
+	err = stream.Send(&proto.PuzzleEvent{
 		Type:        proto.PuzzleEvent_DATA_STRING,
 		Key:         NameKey,
 		ValueString: puzzle.Name,
 	})
-	stream.Send(&proto.PuzzleEvent{
+	if err != nil {
+		return nil, nil, err
+	}
+	err = stream.Send(&proto.PuzzleEvent{
 		Type:        proto.PuzzleEvent_DATA_STRING,
 		Key:         InitialConditionsKey,
 		ValueString: puzzle.InitialConditions,
 	})
-	stream.Send(&proto.PuzzleEvent{
+	if err != nil {
+		return nil, nil, err
+	}
+	err = stream.Send(&proto.PuzzleEvent{
 		Type:     proto.PuzzleEvent_DATA_STRING,
 		Key:      RoleKey,
 		ValueInt: int32(player.Role),
 	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = replayHistory(stream, initialEvent, puzzle)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	// these DO need to be locked, because the paused function is driven by the number of active player channels
 	if !puzzle.Paused() {
 		service.notify(puzzle, &proto.PuzzleEvent{
@@ -151,11 +191,7 @@ func (service *PuzzleService) initializeStream(stream proto.PuzzleService_SolveS
 			ValueInt: int32(puzzle.timeRemaining),
 		})
 	}
-	puzzle.historyLock.Lock()
-	defer puzzle.historyLock.Unlock()
-	for i := initialEvent.Sequence; i < int32(len(puzzle.history)); i++ {
-		stream.Send(puzzle.history[i])
-	}
+
 	return puzzle, player, nil
 }
 
@@ -186,13 +222,7 @@ func (service *PuzzleService) endPuzzle(puzzle *Puzzle) {
 	puzzle.historyLock.Unlock()
 
 	for _, player := range puzzle.Players {
-		player.PuzzleChannelLock.Lock()
-		if player.PuzzleChannel != nil {
-			Logger.Printf("INFO PuzzleService closing channel; puzzle:%v player:%v", puzzle.ID, player.ID)
-			close(player.PuzzleChannel)
-		}
-		player.PuzzleChannel = nil
-		player.PuzzleChannelLock.Unlock()
+		closePuzzleChannel(player)
 	}
 
 	delete(service.puzzles, puzzle.ID)
@@ -259,12 +289,7 @@ func (service *PuzzleService) notify(puzzle *Puzzle, event *proto.PuzzleEvent) {
 // TODO: future might prefer to add a context with a cancellation so that the recovery window
 // can be aborted on a reconnect
 func (service *PuzzleService) handleStreamDisconnected(puzzle *Puzzle, player *Player) {
-	player.PuzzleChannelLock.Lock()
-	if player.PuzzleChannel != nil {
-		close(player.PuzzleChannel)
-	}
-	player.PuzzleChannel = nil
-	player.PuzzleChannelLock.Unlock()
+	closePuzzleChannel(player)
 
 	// notify player missing in action
 	service.notify(puzzle, &proto.PuzzleEvent{
@@ -288,11 +313,14 @@ func (service *PuzzleService) streamSend(stream proto.PuzzleService_SolveServer,
 		select {
 		case event, ok := <-player.PuzzleChannel:
 			if !ok {
+				Logger.Printf("INFO PuzzleService stream shutdown by server; puzzle:%v player:%v", puzzle.ID, player.ID)
 				return nil
 			}
+			//Logger.Printf("DEBUG PuzzleService send puzzle:%v player:%v event:%+v", puzzle.ID, player.ID, event)
 			err := stream.Send(event)
 			if event.Key == ResultKey {
 				service.endPuzzle(puzzle)
+				return nil
 			}
 			if err != nil {
 				Logger.Printf("WARN PuzzleService event send failed; puzzle:%v player:%v", puzzle.ID, player.ID)
@@ -311,9 +339,9 @@ func (service *PuzzleService) streamSend(stream proto.PuzzleService_SolveServer,
 func (service *PuzzleService) streamReceive(stream proto.PuzzleService_SolveServer, puzzle *Puzzle, player *Player) error {
 	for {
 		event, err := stream.Recv()
+		//Logger.Printf("DEBUG PuzzleService received puzzle:%v player:%v event:%+v", puzzle.ID, player.ID, event)
 		if err != nil {
-			Logger.Printf("WARN PuzzleService solve receive failed; puzzle:%v player:%v", puzzle.ID, player.ID)
-			go service.handleStreamDisconnected(puzzle, player)
+			Logger.Printf("INFO PuzzleService solve receive failed; puzzle:%v player:%v", puzzle.ID, player.ID)
 			return err
 		}
 		service.notify(puzzle, event)
