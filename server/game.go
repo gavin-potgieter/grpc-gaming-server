@@ -309,6 +309,18 @@ func (service *GameService) StartPuzzle(context context.Context, request *proto.
 	return &empty.Empty{}, nil
 }
 
+// createGameChannel creates the game channel safely
+func createGameChannel(player *Player) error {
+	player.GameChannelLock.Lock()
+	defer player.GameChannelLock.Unlock()
+
+	if player.GameChannel != nil {
+		return status.Errorf(codes.FailedPrecondition, "already_listening")
+	}
+	player.GameChannel = make(chan *proto.GameEvent)
+	return nil
+}
+
 // Listen allows a client to listen for game notifications
 func (service *GameService) Listen(request *proto.ListenGame, stream proto.GameService_ListenServer) error {
 	Logger.Printf("INFO GameService listening; game:%v player:%v", request.GameId, request.PlayerId)
@@ -324,6 +336,12 @@ func (service *GameService) Listen(request *proto.ListenGame, stream proto.GameS
 	if player, ok = game.Players[request.PlayerId]; !ok {
 		return status.Errorf(codes.NotFound, "player_not_found")
 	}
+
+	err = createGameChannel(player)
+	if err != nil {
+		return err
+	}
+
 	// on listen, send the current player count to the client
 	stream.Send(&proto.GameEvent{
 		Type:  proto.GameEvent_PLAYER_COUNT_CHANGED,
@@ -337,9 +355,6 @@ func (service *GameService) Listen(request *proto.ListenGame, stream proto.GameS
 		})
 	}
 
-	player.GameChannelLock.Lock()
-	player.GameChannel = make(chan *proto.GameEvent)
-	player.GameChannelLock.Unlock()
 	for {
 		select {
 		case event, ok := <-player.GameChannel:

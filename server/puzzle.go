@@ -81,6 +81,17 @@ func (service *PuzzleService) getPuzzle(id string) (*Puzzle, error) {
 	return puzzle, nil
 }
 
+// createPuzzleChannel creates the puzzle channel safely
+func createPuzzleChannel(player *Player) error {
+	player.PuzzleChannelLock.Lock()
+	defer player.PuzzleChannelLock.Unlock()
+	if player.PuzzleChannel != nil {
+		return status.Errorf(codes.FailedPrecondition, "already_solving")
+	}
+	player.PuzzleChannel = make(chan *proto.PuzzleEvent, 10) // 0 channels block if there are no receivers
+	return nil
+}
+
 // initializeStream sets up a player that is joining a puzzle, it does the following:
 // 1. it creates the channel
 // 2. it sends events with the name, intial conditions, player role to the player joining
@@ -104,14 +115,17 @@ func (service *PuzzleService) initializeStream(stream proto.PuzzleService_SolveS
 	if player, ok = puzzle.Players[initialEvent.PlayerId]; !ok {
 		return nil, nil, status.Errorf(codes.InvalidArgument, "invalid_player_id")
 	}
+
 	puzzle.Lock.Lock() // ensures that the game hasn't ended, and only the last player unpauses the game
 	defer puzzle.Lock.Unlock()
 	if puzzle.timeRemaining <= 0 {
 		return nil, nil, status.Errorf(codes.FailedPrecondition, "puzzle_ended")
 	}
-	player.PuzzleChannelLock.Lock()
-	player.PuzzleChannel = make(chan *proto.PuzzleEvent, 10) // 0 channels block if there are no receivers
-	player.PuzzleChannelLock.Unlock()
+
+	err = createPuzzleChannel(player)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	// these sends don't need to be locked, but we would like the stream order to be consistent
 	stream.Send(&proto.PuzzleEvent{
@@ -138,10 +152,10 @@ func (service *PuzzleService) initializeStream(stream proto.PuzzleService_SolveS
 		})
 	}
 	puzzle.historyLock.Lock()
+	defer puzzle.historyLock.Unlock()
 	for i := initialEvent.Sequence; i < int32(len(puzzle.history)); i++ {
 		stream.Send(puzzle.history[i])
 	}
-	puzzle.historyLock.Unlock()
 	return puzzle, player, nil
 }
 

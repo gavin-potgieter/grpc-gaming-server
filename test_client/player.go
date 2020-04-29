@@ -295,7 +295,7 @@ func (player *Player) ProcessPuzzleEvent(event *proto.PuzzleEvent) {
 		switch event.Sequence {
 		case 0:
 			if player.Role == Deaf {
-				//player.SendStringEvent("shout uselessly", false)
+				player.SendStringEvent("shout uselessly", false)
 				player.SendStringEvent("shout usefully", true) //1
 			}
 			if player.Role == Blind {
