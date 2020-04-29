@@ -4,9 +4,17 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
+	"path"
 
 	"github.com/gavin-potgieter/sensense-server/server/proto"
 	"google.golang.org/grpc"
+)
+
+var (
+	_, filename = path.Split(os.Args[0])
+	// Logger is the default logger
+	Logger = log.New(os.Stdout, filename+" ", log.LstdFlags)
 )
 
 func serve() {

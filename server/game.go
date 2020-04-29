@@ -4,10 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"log"
 	"math/big"
-	"os"
-	"path"
 	"strconv"
 	"sync"
 	"time"
@@ -19,18 +16,14 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var (
-	_, filename = path.Split(os.Args[0])
-	// Logger is the default logger
-	Logger = log.New(os.Stdout, filename+" ", log.LstdFlags)
-)
-
-// GameService provides a running service instance
+// GameService provides a running service instance. There is only one service
+// instance so critical section management is required in the remaining code.
+// All completed games must be removed or there will be a memory leak.
 type GameService struct {
-	gamesLock     sync.Mutex
-	gameCodes     map[int]*Game
-	games         map[uuid.UUID]*Game
-	puzzleService *PuzzleService
+	gamesLock     sync.Mutex          // the lock to serialize modification of the active games
+	gameCodes     map[int]*Game       // the active games [by code for search optimization] (for all players in all games)
+	games         map[uuid.UUID]*Game // the active games [by id] (for all players in all games)
+	puzzleService *PuzzleService      // the instance of the puzzle service to dispatch puzzles
 }
 
 // NewGameService creates a new GameService
@@ -43,17 +36,19 @@ func NewGameService(ps *PuzzleService) (*GameService, error) {
 	}, nil
 }
 
+// createGameCode is a utility to generate game codes
 func createGameCode() int {
 	code, _ := rand.Int(rand.Reader, big.NewInt(1000000))
 	return int(code.Int64())
 }
 
+// isDuplicate is a utility to check if game codes are duplicated
 func isDuplicate(service *GameService, gameCode int) bool {
 	_, ok := service.gameCodes[gameCode]
 	return ok
 }
 
-// Create creates a new game
+// Create creates a new game and adds the player creating it with a random role
 func (service *GameService) Create(context context.Context, request *proto.CreateGameRequest) (*proto.CreateGameResponse, error) {
 	Logger.Printf("INFO GameService creating; player:%v", request.PlayerId)
 	if request.PlayerId == "" {
@@ -64,6 +59,7 @@ func (service *GameService) Create(context context.Context, request *proto.Creat
 		return nil, status.Errorf(codes.Internal, "game_creation_failed")
 	}
 
+	// generates a unique game code (that isn't currently active)
 	code := 0
 	for code = createGameCode(); isDuplicate(service, code); code = createGameCode() {
 		// pass
@@ -87,7 +83,8 @@ func (service *GameService) Create(context context.Context, request *proto.Creat
 	}, nil
 }
 
-func findMissingRole(players map[string]*Player) (Role, error) {
+// findUnassignedRole is a utility to find an unassigned role
+func findUnassignedRole(players map[string]*Player) (Role, error) {
 	for role := Role(0); role < PlayerLimit; role++ {
 		found := false
 		for _, player := range players {
@@ -103,6 +100,9 @@ func findMissingRole(players map[string]*Player) (Role, error) {
 	return Role(0), status.Errorf(codes.ResourceExhausted, "game_full")
 }
 
+// join is a shared function to have a player join or rejoin a game. It adds
+// the new player and assigns them a role, and notifies the other players. It
+// exits gracefully if the player is already in the game.
 func (service *GameService) join(game *Game, playerID string) error {
 	if _, ok := game.Players[playerID]; ok {
 		return nil
@@ -111,7 +111,7 @@ func (service *GameService) join(game *Game, playerID string) error {
 		return status.Errorf(codes.ResourceExhausted, "game_full")
 	}
 	game.Lock.Lock()
-	role, err := findMissingRole(game.Players)
+	role, err := findUnassignedRole(game.Players)
 	if err != nil {
 		return err
 	}
@@ -167,6 +167,7 @@ func (service *GameService) Rejoin(context context.Context, request *proto.Rejoi
 	return &empty.Empty{}, nil
 }
 
+// deleteGame is a utility function for cleaning up left or abandoned games
 func (service *GameService) deleteGame(gameID uuid.UUID) {
 	Logger.Printf("DEBUG GameService delete game")
 	game := service.games[gameID]
@@ -200,6 +201,7 @@ func (service *GameService) Leave(context context.Context, request *proto.LeaveG
 	return &empty.Empty{}, nil
 }
 
+// notify notifies all players of game events
 func (service *GameService) notify(game *Game, event *proto.GameEvent) {
 	for _, player := range game.Players {
 		player.GameChannelLock.RLock()
@@ -210,6 +212,7 @@ func (service *GameService) notify(game *Game, event *proto.GameEvent) {
 	}
 }
 
+// leave is a shared function for when a player leaves cleanly or uncleanly
 func (service *GameService) leave(game *Game, player *Player) {
 	player.GameChannelLock.Lock()
 	if player.GameChannel != nil {
@@ -231,6 +234,12 @@ func (service *GameService) leave(game *Game, player *Player) {
 	game.Lock.Unlock()
 }
 
+// handleStreamDisconnected is a goroutine to cleanup after dirty disconnects. It
+// also notifies all remaining players of the disconnect. It gives the player a
+// recovery window before removing them effectively blocking new players from taking
+// their spot in the game (thereby shielding the other players from noisy network issues).
+// TODO: future might prefer to add a context with a cancellation so that the recovery window
+// can be aborted on a reconnect
 func (service *GameService) handleStreamDisconnected(game *Game, player *Player) {
 	player.GameChannelLock.Lock()
 	if player.GameChannel != nil {
@@ -248,6 +257,7 @@ func (service *GameService) handleStreamDisconnected(game *Game, player *Player)
 	service.leave(game, player)
 }
 
+// getGame is a utility function to get the game from the game id
 func (service *GameService) getGame(id string) (*Game, error) {
 	gameID, err := uuid.Parse(id)
 	if err != nil {

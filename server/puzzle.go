@@ -10,10 +10,13 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// PuzzleService provides a running service instance
+// PuzzleService provides a running puzzle service instance.
+// There is only one service instance so critical section management
+// is required in the remaining code. All completed puzzles must be
+// removed or there will be a memory leak.
 type PuzzleService struct {
-	puzzlesLock sync.Mutex
-	puzzles     map[uuid.UUID]*Puzzle
+	puzzlesLock sync.Mutex            // the lock to serialize modification of the active puzzles
+	puzzles     map[uuid.UUID]*Puzzle // the active puzzles (for all players in all games)
 }
 
 // NewPuzzleService creates a new puzzle service
@@ -31,7 +34,8 @@ func rotateRoles(players map[string]*Player) {
 	}
 }
 
-// CreatePuzzle creates a puzzle given the puzzle name and initial conditions, cycling the player roles automatically
+// CreatePuzzle creates a puzzle given the puzzle name and initial conditions, cycling the player roles automatically.
+// It also starts the game "clock" or ticker, which will only count down when there are PlayerLimit connected playes.
 func (service *PuzzleService) CreatePuzzle(name string, initialConditions string, duration int, players map[string]*Player, callback EndPuzzleCallback) (uuid.UUID, error) {
 	puzzleID, err := uuid.NewRandom()
 	if err != nil {
@@ -62,6 +66,7 @@ func (service *PuzzleService) CreatePuzzle(name string, initialConditions string
 	return puzzle.ID, nil
 }
 
+// getPuzzle a utility function to get the puzzle for the given puzzle id
 func (service *PuzzleService) getPuzzle(id string) (*Puzzle, error) {
 	puzzleID, err := uuid.Parse(id)
 	if err != nil {
@@ -173,7 +178,9 @@ func (service *PuzzleService) endPuzzle(puzzle *Puzzle) {
 }
 
 // puzzleTicker is a goroutine to broadcast events every x seconds with
-// the remaining game time; it also ends the game when the time runs out
+// the remaining game time; it also ends the game when the time runs out.
+// if not all players are connected, the game time is not decreased. the initial
+// time event is skipped as it is sent when all three players have joined.
 func (service *PuzzleService) puzzleTicker(puzzle *Puzzle) {
 	skippedFirst := false
 	for {
@@ -200,7 +207,8 @@ func (service *PuzzleService) puzzleTicker(puzzle *Puzzle) {
 	}
 }
 
-// notify notifies all players of events
+// notify is a utility function to notify all players of puzzle events.
+// It sanitizes player ids from events.
 func (service *PuzzleService) notify(puzzle *Puzzle, event *proto.PuzzleEvent) {
 	for _, player := range puzzle.Players {
 		player.PuzzleChannelLock.RLock()
@@ -213,6 +221,11 @@ func (service *PuzzleService) notify(puzzle *Puzzle, event *proto.PuzzleEvent) {
 	}
 }
 
+// handleStreamDisconnected is a goroutine to cleanup after dirty disconnects. It
+// also notifies all remaining players of the disconnect. If the lost player doesn't
+// rejoin before the recovery window, the puzzle is ended.
+// TODO: future might prefer to add a context with a cancellation so that the recovery window
+// can be aborted on a reconnect
 func (service *PuzzleService) handleStreamDisconnected(puzzle *Puzzle, player *Player) {
 	player.PuzzleChannelLock.Lock()
 	if player.PuzzleChannel != nil {
@@ -221,6 +234,7 @@ func (service *PuzzleService) handleStreamDisconnected(puzzle *Puzzle, player *P
 	player.PuzzleChannel = nil
 	player.PuzzleChannelLock.Unlock()
 
+	// notify player missing in action
 	service.notify(puzzle, &proto.PuzzleEvent{
 		Type:     proto.PuzzleEvent_DATA_INT,
 		Key:      PlayerMissingKey,
@@ -236,6 +250,7 @@ func (service *PuzzleService) handleStreamDisconnected(puzzle *Puzzle, player *P
 	service.endPuzzle(puzzle)
 }
 
+// streamSend sends events from the current player channel to the player client
 func (service *PuzzleService) streamSend(stream proto.PuzzleService_SolveServer, puzzle *Puzzle, player *Player) error {
 	for {
 		select {
@@ -260,7 +275,7 @@ func (service *PuzzleService) streamSend(stream proto.PuzzleService_SolveServer,
 	}
 }
 
-// streamReceive is a goroutine
+// streamReceive is a goroutine to receive and dispatch events from the player client
 func (service *PuzzleService) streamReceive(stream proto.PuzzleService_SolveServer, puzzle *Puzzle, player *Player) error {
 	for {
 		event, err := stream.Recv()
