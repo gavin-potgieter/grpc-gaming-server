@@ -76,7 +76,8 @@ message PuzzleEvent {
   string key = 4;
   int32 value_int = 5;
   string value_string = 6;
-  bool transient = 7;
+  bool durable = 7;
+  int32 sequence = 8; // will be 0 for transient events
 }
 
 service PuzzleService {

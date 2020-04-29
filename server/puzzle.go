@@ -50,6 +50,7 @@ func (service *PuzzleService) CreatePuzzle(name string, initialConditions string
 		Players:           make(map[string]*Player, 0),
 		timeRemaining:     duration,
 		ticker:            time.NewTicker(time.Second),
+		history:           make([]*proto.PuzzleEvent, 0, 300),
 	}
 	for _, player := range players {
 		puzzle.Players[player.ID] = player
@@ -83,11 +84,12 @@ func (service *PuzzleService) getPuzzle(id string) (*Puzzle, error) {
 // initializeStream sets up a player that is joining a puzzle, it does the following:
 // 1. it creates the channel
 // 2. it sends events with the name, intial conditions, player role to the player joining
-// 3. Once there are enough players it sends the all aboard and remaining time events to all players
+// 3. Once there are enough players it sends the all aboard including the remaining time event to all players
+// 4. if the initial sequence event is behind the history queue all events from that sequence are replayed
 func (service *PuzzleService) initializeStream(stream proto.PuzzleService_SolveServer) (*Puzzle, *Player, error) {
 	initialEvent, err := stream.Recv()
-	if err != nil || initialEvent.Type != proto.PuzzleEvent_DATA_NONE {
-		return nil, nil, status.Errorf(codes.Internal, "no_puzzle_initial_event_received")
+	if err != nil || initialEvent.Type != proto.PuzzleEvent_DATA_INT || initialEvent.Key != "SEQN" {
+		return nil, nil, status.Errorf(codes.InvalidArgument, "no_puzzle_sequence_number_event_received")
 	}
 	Logger.Printf("INFO PuzzleService solving; puzzle:%v player:%v", initialEvent.PuzzleId, initialEvent.PlayerId)
 	if initialEvent.PlayerId == "" {
@@ -131,13 +133,15 @@ func (service *PuzzleService) initializeStream(stream proto.PuzzleService_SolveS
 	if !puzzle.Paused() {
 		service.notify(puzzle, &proto.PuzzleEvent{
 			Type:     proto.PuzzleEvent_DATA_INT,
-			Key:      TimeKey,
+			Key:      AllAboardKey,
 			ValueInt: int32(puzzle.timeRemaining),
 		})
-		service.notify(puzzle, &proto.PuzzleEvent{
-			Key: AllAboardKey,
-		})
 	}
+	puzzle.historyLock.Lock()
+	for i := initialEvent.Sequence; i < int32(len(puzzle.history)); i++ {
+		stream.Send(puzzle.history[i])
+	}
+	puzzle.historyLock.Unlock()
 	return puzzle, player, nil
 }
 
@@ -162,6 +166,10 @@ func (service *PuzzleService) endPuzzle(puzzle *Puzzle) {
 	}
 	puzzle.timeRemaining = 0
 	puzzle.Lock.Unlock()
+
+	puzzle.historyLock.Lock()
+	puzzle.history = make([]*proto.PuzzleEvent, 0)
+	puzzle.historyLock.Unlock()
 
 	for _, player := range puzzle.Players {
 		player.PuzzleChannelLock.Lock()
@@ -208,13 +216,23 @@ func (service *PuzzleService) puzzleTicker(puzzle *Puzzle) {
 }
 
 // notify is a utility function to notify all players of puzzle events.
-// It sanitizes player ids from events.
+// It sanitizes uneccessary data from events. It also stores non transient events
+// on the puzzle history to enable replaying and therefore resynchronization of players
 func (service *PuzzleService) notify(puzzle *Puzzle, event *proto.PuzzleEvent) {
+	event.PlayerId = ""
+	event.PuzzleId = ""
+
+	puzzle.historyLock.Lock()
+	if event.Durable {
+		event.Sequence = int32(len(puzzle.history))
+		puzzle.history = append(puzzle.history, event)
+	}
+	puzzle.historyLock.Unlock()
+
 	for _, player := range puzzle.Players {
 		player.PuzzleChannelLock.RLock()
 		playerHasAnOpenChannel := player.PuzzleChannel != nil
 		if playerHasAnOpenChannel {
-			event.PlayerId = ""
 			player.PuzzleChannel <- event
 		}
 		player.PuzzleChannelLock.RUnlock()

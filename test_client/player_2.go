@@ -23,23 +23,15 @@ func NewPlayer2(railway *Railway) (*Player2, error) {
 	}, nil
 }
 
-func (player2 *Player2) callback(event *proto.GameEvent) error {
+func (player2 *Player2) gameCallback(event *proto.GameEvent) error {
 	switch event.Type {
 	case proto.GameEvent_PLAYER_COUNT_CHANGED:
 		if event.Count == 3 {
-			err := player2.Player.StartPuzzle()
+			err := player2.Player.StartPuzzle("P1", 10)
 			if err != nil {
 				return err
 			}
 		}
-	case proto.GameEvent_PUZZLE_STARTED:
-		PuzzleID = event.PuzzleId
-		go func() {
-			err := player2.Player.ListenPuzzle(nil, nil)
-			if err != nil {
-				Logger.Printf("ERROR %v %v\n", player2.Player.PlayerID, err)
-			}
-		}()
 	}
 	return nil
 }
@@ -74,7 +66,7 @@ func (player2 *Player2) Interact(group *sync.WaitGroup) error {
 	}
 
 	go func() {
-		err := player2.Player.ListenGame(group, player2.callback)
+		err := player2.Player.ListenGame(group, player2.gameCallback)
 		if err != nil {
 			Logger.Printf("ERROR %v %v\n", player2.Player.PlayerID, err)
 		}

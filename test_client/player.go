@@ -8,13 +8,22 @@ import (
 	"google.golang.org/grpc"
 )
 
+const (
+	Blind = 0
+	Deaf  = 1
+	Mute  = 2
+)
+
 type Player struct {
 	GameID           string
 	PlayerID         string
+	Role             int
+	PuzzleName       string
 	gameConnection   *grpc.ClientConn
 	gameService      proto.GameServiceClient
 	puzzleConnection *grpc.ClientConn
 	puzzleService    proto.PuzzleServiceClient
+	eventChannel     chan *proto.PuzzleEvent
 }
 
 type GameEventCallback func(*proto.GameEvent) error
@@ -66,7 +75,9 @@ func (player *Player) DisconnectGame() error {
 
 func NewPlayer(playerID string) (*Player, error) {
 	player := &Player{
-		PlayerID: playerID,
+		PlayerID:     playerID,
+		eventChannel: make(chan *proto.PuzzleEvent, 10),
+		Role:         -1,
 	}
 	err := player.connectGame()
 	if err != nil {
@@ -151,6 +162,17 @@ func (player *Player) ListenGame(group *sync.WaitGroup, callback GameEventCallba
 		if err != nil {
 			return err
 		}
+
+		switch event.Type {
+		case proto.GameEvent_PUZZLE_STARTED:
+			PuzzleID = event.PuzzleId
+			go func() {
+				err := player.ListenPuzzle(0)
+				if err != nil {
+					Logger.Printf("ERROR %v %v\n", player.PlayerID, err)
+				}
+			}()
+		}
 		Logger.Printf("INFO %v %+v\n", player.PlayerID, event)
 		if callback == nil {
 			continue
@@ -179,7 +201,7 @@ func (player *Player) Leave() error {
 	return nil
 }
 
-func (player *Player) StartPuzzle() error {
+func (player *Player) StartPuzzle(name string, time int) error {
 	err := player.connectGame()
 	if err != nil {
 		return err
@@ -187,9 +209,9 @@ func (player *Player) StartPuzzle() error {
 
 	_, err = player.gameService.StartPuzzle(context.Background(), &proto.StartPuzzleRequest{
 		GameId:            player.GameID,
-		Name:              "a puzzle",
+		Name:              name,
 		InitialConditions: "some initial conditions",
-		Time:              10,
+		Time:              int32(time),
 	})
 	if err != nil {
 		return err
@@ -198,11 +220,7 @@ func (player *Player) StartPuzzle() error {
 	return nil
 }
 
-func (player *Player) ListenPuzzle(group *sync.WaitGroup, callback PuzzleEventCallback) error {
-	if group != nil {
-		defer group.Done()
-	}
-
+func (player *Player) ListenPuzzle(sequence int) error {
 	err := player.connectPuzzle()
 	if err != nil {
 		return err
@@ -215,10 +233,23 @@ func (player *Player) ListenPuzzle(group *sync.WaitGroup, callback PuzzleEventCa
 	err = stream.Send(&proto.PuzzleEvent{
 		PlayerId: player.PlayerID,
 		PuzzleId: PuzzleID,
+		Type:     proto.PuzzleEvent_DATA_INT,
+		Key:      "SEQN",
+		ValueInt: int32(sequence),
 	})
 	if err != nil {
 		return err
 	}
+	go func() {
+		for {
+			event, ok := <-player.eventChannel
+			if !ok {
+				return
+			}
+			stream.Send(event)
+		}
+	}()
+
 	Logger.Printf("INFO %v listening to puzzle; puzzle_id: %v", player.PlayerID, PuzzleID)
 	for {
 		event, err := stream.Recv()
@@ -226,12 +257,100 @@ func (player *Player) ListenPuzzle(group *sync.WaitGroup, callback PuzzleEventCa
 			return err
 		}
 		Logger.Printf("INFO %v %+v\n", player.PlayerID, event)
-		if callback == nil {
-			continue
-		}
-		err = callback(event)
-		if err != nil {
-			return err
+
+		switch event.Key {
+		case "ROLE":
+			player.Role = int(event.ValueInt)
+			player.SendFirstPuzzleEvent()
+		case "NAME":
+			player.PuzzleName = event.ValueString
+		default:
+			player.ProcessPuzzleEvent(event)
 		}
 	}
+}
+
+func (player *Player) SendEvent(event *proto.PuzzleEvent) {
+	player.eventChannel <- event
+}
+
+func (player *Player) SendFirstPuzzleEvent() {
+	switch player.PuzzleName {
+	case "P1":
+		if player.Role == Mute {
+			player.SendStringEvent("wave", true) //0
+		}
+	case "P2":
+
+	}
+}
+
+func (player *Player) ProcessPuzzleEvent(event *proto.PuzzleEvent) {
+	if !event.Durable {
+		return
+	}
+
+	switch player.PuzzleName {
+	case "P1":
+		switch event.Sequence {
+		case 0:
+			if player.Role == Deaf {
+				//player.SendStringEvent("shout uselessly", false)
+				player.SendStringEvent("shout usefully", true) //1
+			}
+			if player.Role == Blind {
+				player.SendStringEvent("cricket chirps", false)
+			}
+		case 1:
+			if player.Role == Blind {
+				player.SendIntEvent("touch_pos", 5, true) //2
+				player.SendIntEvent("touch_pos", 2, false)
+				player.SendIntEvent("touch_pos", 3, false)
+			}
+		case 2:
+			if player.Role == Mute {
+				player.SendStringEvent("spin", true) //3
+			}
+		case 3:
+			if player.Role == Deaf {
+				player.Win()
+			}
+
+		}
+	case "P2":
+	}
+
+}
+
+func (player *Player) SendIntEvent(key string, value int, durable bool) {
+	player.SendEvent(&proto.PuzzleEvent{
+		Type:     proto.PuzzleEvent_DATA_INT,
+		Key:      key,
+		ValueInt: int32(value),
+		Durable:  durable,
+	})
+}
+
+func (player *Player) SendStringEvent(value string, durable bool) {
+	player.SendEvent(&proto.PuzzleEvent{
+		Type:        proto.PuzzleEvent_DATA_STRING,
+		ValueString: value,
+		Durable:     durable,
+	})
+}
+
+func (player *Player) Win() {
+	player.SendEvent(&proto.PuzzleEvent{
+		Type:        proto.PuzzleEvent_DATA_STRING,
+		Key:         "RSLT",
+		ValueString: "WON",
+	})
+}
+
+func (player *Player) Abort() {
+	player.SendEvent(&proto.PuzzleEvent{
+		Type:        proto.PuzzleEvent_DATA_STRING,
+		Key:         "RSLT",
+		ValueString: "ABORT",
+	})
 }
