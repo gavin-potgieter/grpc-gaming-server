@@ -40,8 +40,8 @@ func NewGameService(ps *PuzzleService) (*GameService, error) {
 
 // createGameCode is a utility to generate game codes
 func createGameCode() int {
-	code, _ := rand.Int(rand.Reader, big.NewInt(1000000))
-	return int(code.Int64())
+	code, _ := rand.Int(rand.Reader, big.NewInt(500000))
+	return 500000 + int(code.Int64())
 }
 
 // isDuplicate is a utility to check if game codes are duplicated
