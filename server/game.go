@@ -74,11 +74,17 @@ func (service *GameService) Create(context context.Context, request *proto.Creat
 		Players: map[string]*Player{
 			request.PlayerId: NewPlayer(request.PlayerId, Role(role.Int64())),
 		},
+		ticker: time.NewTicker(60 * time.Second),
 	}
+
 	service.gamesLock.Lock()
+	defer service.gamesLock.Unlock()
+
 	service.games[gameID] = game
 	service.gameCodes[code] = game
-	service.gamesLock.Unlock()
+
+	go service.gameTicker(game)
+
 	return &proto.CreateGameResponse{
 		GameCode: fmt.Sprintf("%06.f", float64(code)),
 		GameId:   gameID.String(),
@@ -112,7 +118,10 @@ func (service *GameService) join(game *Game, playerID string) error {
 	if len(game.Players) >= PlayerLimit {
 		return status.Errorf(codes.ResourceExhausted, "game_full")
 	}
+
 	game.Lock.Lock()
+	defer game.Lock.Unlock()
+
 	role, err := findUnassignedRole(game.Players)
 	if err != nil {
 		return err
@@ -123,7 +132,6 @@ func (service *GameService) join(game *Game, playerID string) error {
 		Type:  proto.GameEvent_PLAYER_COUNT_CHANGED,
 		Count: int32(len(game.Players)),
 	})
-	game.Lock.Unlock()
 	return nil
 }
 
@@ -176,10 +184,16 @@ func (service *GameService) deleteGame(gameID uuid.UUID) {
 	if game == nil {
 		return
 	}
+	if game.ticker != nil {
+		game.ticker.Stop()
+		game.ticker = nil
+	}
+
 	service.gamesLock.Lock()
+	defer service.gamesLock.Unlock()
+
 	delete(service.gameCodes, game.Code)
 	delete(service.games, game.ID)
-	service.gamesLock.Unlock()
 }
 
 // Leave allows players to cleanly leave a game
@@ -206,29 +220,17 @@ func (service *GameService) Leave(context context.Context, request *proto.LeaveG
 // notify notifies all players of game events
 func (service *GameService) notify(game *Game, event *proto.GameEvent) {
 	for _, player := range game.Players {
-		player.GameChannelLock.RLock()
-		if player.GameChannel != nil {
-			player.GameChannel <- event
-		}
-		player.GameChannelLock.RUnlock()
+		player.GameChannel.Send(event)
 	}
-}
-
-// closeGameChannel utility closes the game channel
-func (service *GameService) closeGameChannel(player *Player) {
-	player.GameChannelLock.Lock()
-	defer player.GameChannelLock.Unlock()
-	if player.GameChannel != nil {
-		close(player.GameChannel)
-	}
-	player.GameChannel = nil
 }
 
 // leave is a shared function for when a player leaves cleanly or uncleanly
 func (service *GameService) leave(game *Game, player *Player) {
-	service.closeGameChannel(player)
+	player.GameChannel.Close()
 
 	game.Lock.Lock()
+	defer game.Lock.Unlock()
+
 	delete(game.Players, player.ID)
 	if len(game.Players) == 0 {
 		service.deleteGame(game.ID)
@@ -238,7 +240,6 @@ func (service *GameService) leave(game *Game, player *Player) {
 			Count: int32(len(game.Players)),
 		})
 	}
-	game.Lock.Unlock()
 }
 
 // handleStreamDisconnected is a goroutine to cleanup after dirty disconnects. It
@@ -248,14 +249,12 @@ func (service *GameService) leave(game *Game, player *Player) {
 // TODO: future might prefer to add a context with a cancellation so that the recovery window
 // can be aborted on a reconnect
 func (service *GameService) handleStreamDisconnected(game *Game, player *Player) {
-	service.closeGameChannel(player)
-	time.Sleep(PlayerRecoveryTime)
-	if player.GameChannel != nil {
-		Logger.Printf("INFO GameService recovered player; game:%v player:%v", game.ID, player.ID)
+	select {
+	case <-player.GameChannel.Recovered:
 		return
+	case <-time.After(PlayerRecoveryTime):
+		service.leave(game, player)
 	}
-	Logger.Printf("WARN GameService lost player; game:%v player:%v", game.ID, player.ID)
-	service.leave(game, player)
 }
 
 // getGame is a utility function to get the game from the game id
@@ -270,6 +269,16 @@ func (service *GameService) getGame(id string) (*Game, error) {
 		return nil, status.Errorf(codes.NotFound, "game_not_found")
 	}
 	return game, nil
+}
+
+// gameTicker ticks once every 60 seconds
+func (service *GameService) gameTicker(game *Game) {
+	for game.ticker != nil {
+		<-game.ticker.C
+		service.notify(game, &proto.GameEvent{
+			Type: proto.GameEvent_KEEPALIVE,
+		})
+	}
 }
 
 // StartPuzzle starts a puzzle
@@ -290,6 +299,8 @@ func (service *GameService) StartPuzzle(context context.Context, request *proto.
 	}
 
 	game.Lock.Lock()
+	defer game.Lock.Unlock()
+
 	if game.PuzzleID != nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "puzzle_in_progress")
 	}
@@ -305,21 +316,8 @@ func (service *GameService) StartPuzzle(context context.Context, request *proto.
 		Type:     proto.GameEvent_PUZZLE_STARTED,
 		PuzzleId: puzzleID.String(),
 	})
-	game.Lock.Unlock()
 
 	return &empty.Empty{}, nil
-}
-
-// createGameChannel creates the game channel safely
-func createGameChannel(player *Player) error {
-	player.GameChannelLock.Lock()
-	defer player.GameChannelLock.Unlock()
-
-	if player.GameChannel != nil {
-		return status.Errorf(codes.FailedPrecondition, "already_listening")
-	}
-	player.GameChannel = make(chan *proto.GameEvent)
-	return nil
 }
 
 // Listen allows a client to listen for game notifications
@@ -338,10 +336,8 @@ func (service *GameService) Listen(request *proto.ListenGame, stream proto.GameS
 		return status.Errorf(codes.NotFound, "player_not_found")
 	}
 
-	err = createGameChannel(player)
-	if err != nil {
-		return err
-	}
+	player.GameChannel.Open()
+	player.GameChannel.Recover()
 
 	// on listen, send the current player count to the client
 	stream.Send(&proto.GameEvent{
@@ -356,19 +352,25 @@ func (service *GameService) Listen(request *proto.ListenGame, stream proto.GameS
 		})
 	}
 
+	// There are three things that could happen in the next code:
+	// 1. An event can be dequeued
+	// 2. The channel could be closed by the server
+	// 3. The channel could be closed by the client
+	channel := player.GameChannel.Channel
 	for {
 		select {
-		case event, ok := <-player.GameChannel:
-			if !ok {
+		case event, ok := <-channel:
+			if !ok { // closed by server
 				return nil
 			}
-			err := stream.Send(event)
-			if err != nil {
+			gameEvent := event.(*proto.GameEvent)
+			err := stream.Send(gameEvent)
+			if err != nil { // failed to send to client
 				Logger.Printf("WARN GameService event send failed; game:%v player:%v", game.ID, player.ID)
 				go service.handleStreamDisconnected(game, player)
 				return status.Errorf(codes.DataLoss, "listener_aborted")
 			}
-		case <-stream.Context().Done():
+		case <-stream.Context().Done(): // closed by client
 			Logger.Printf("WARN GameService connection disconnected by client; game:%v player:%v", game.ID, player.ID)
 			go service.handleStreamDisconnected(game, player)
 			return nil

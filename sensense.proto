@@ -39,6 +39,7 @@ message GameEvent {
   enum Type {
     PLAYER_COUNT_CHANGED = 0;
     PUZZLE_STARTED = 1;
+    KEEPALIVE = 2;
   }
   Type type = 1;
   int32 count = 2;

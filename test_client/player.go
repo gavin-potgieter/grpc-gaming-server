@@ -41,7 +41,7 @@ func (player *Player) connectGame() error {
 	if player.gameConnection != nil {
 		return nil
 	}
-	conn, err := grpc.Dial("localhost:50051", grpc.WithInsecure())
+	conn, err := grpc.Dial("52.143.158.107:80", grpc.WithInsecure())
 	if err != nil {
 		return err
 	}
@@ -54,7 +54,7 @@ func (player *Player) connectGame() error {
 // connectPuzzle is used to create the puzzle; the only reason connections are
 // being created twice is to allow for testing
 func (player *Player) connectPuzzle() error {
-	conn, err := grpc.Dial("localhost:50051", grpc.WithInsecure())
+	conn, err := grpc.Dial("52.143.158.107:80", grpc.WithInsecure())
 	if err != nil {
 		return err
 	}
