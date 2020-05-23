@@ -336,7 +336,6 @@ func (service *GameService) Listen(request *proto.ListenGame, stream proto.GameS
 		return status.Errorf(codes.NotFound, "player_not_found")
 	}
 
-	player.GameChannel.Open()
 	player.GameChannel.Recover()
 
 	// on listen, send the current player count to the client
@@ -364,6 +363,7 @@ func (service *GameService) Listen(request *proto.ListenGame, stream proto.GameS
 				return nil
 			}
 			gameEvent := event.(*proto.GameEvent)
+			//Logger.Printf("DEBUG GameService sending game:%v player:%v event:%+v", game.ID, player.ID, event)
 			err := stream.Send(gameEvent)
 			if err != nil { // failed to send to client
 				Logger.Printf("WARN GameService event send failed; game:%v player:%v", game.ID, player.ID)

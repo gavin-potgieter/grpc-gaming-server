@@ -15,28 +15,17 @@ type Channel struct {
 // NewChannel creates a new channel
 func NewChannel() *Channel {
 	return &Channel{
-		Channel: nil,
-		lock:    sync.RWMutex{},
-		open:    false,
+		Channel:   make(chan interface{}, 100),
+		lock:      sync.RWMutex{},
+		open:      true,
+		Recovered: make(chan bool, 5),
 	}
-}
-
-// Open a channel
-func (channel *Channel) Open() {
-	channel.lock.Lock()
-	defer channel.lock.Unlock()
-	if channel.open {
-		return
-	}
-	channel.Channel = make(chan interface{}, 100)
-	channel.open = true
-	return
 }
 
 // Send an event
 func (channel *Channel) Send(event interface{}) {
 	channel.lock.RLock()
-	defer channel.lock.RLock()
+	defer channel.lock.RUnlock()
 	if !channel.open {
 		return
 	}
