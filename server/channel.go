@@ -19,12 +19,13 @@ type Channel struct {
 // NewChannel creates a new channel
 func NewChannel() *Channel {
 	return &Channel{
-		Events:    make(chan interface{}, 100),
-		Recovered: make(chan bool, 1),
-		SkipBack:  make(chan interface{}, 1),
-		lock:      sync.RWMutex{},
-		open:      true,
-		listening: false,
+		Events:       make(chan interface{}, 100),
+		Recovered:    make(chan bool, 1),
+		SkipBack:     make(chan interface{}, 1),
+		lock:         sync.RWMutex{},
+		open:         true,
+		listening:    false,
+		reconnecting: false,
 	}
 }
 
@@ -45,6 +46,7 @@ func (channel *Channel) Retry(event interface{}) {
 	if !channel.open {
 		return
 	}
+	channel.reconnecting = true
 	channel.SkipBack <- event
 }
 
@@ -64,8 +66,9 @@ func (channel *Channel) Close() {
 func (channel *Channel) Recover() {
 	channel.lock.RLock()
 	defer channel.lock.RUnlock()
-	if channel.open {
+	if channel.open && channel.reconnecting {
 		channel.Recovered <- true
+		channel.reconnecting = false
 	}
 }
 

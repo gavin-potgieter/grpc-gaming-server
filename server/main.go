@@ -5,10 +5,12 @@ import (
 	"log"
 	"net"
 	"os"
+	"time"
 
 	"github.com/akamensky/argparse"
 	"github.com/gavin-potgieter/sensense-server/server/proto"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 )
 
 var (
@@ -38,7 +40,19 @@ func serve() {
 	if err != nil {
 		log.Fatalf("%v", err)
 	}
-	server := grpc.NewServer()
+
+	policy := keepalive.EnforcementPolicy{
+		MinTime:             5 * time.Second,
+		PermitWithoutStream: false,
+	}
+
+	keepalive := keepalive.ServerParameters{
+		MaxConnectionIdle: 30 * time.Minute,
+		Time:              1 * time.Second,
+		Timeout:           2 * time.Second,
+	}
+
+	server := grpc.NewServer(grpc.KeepaliveEnforcementPolicy(policy), grpc.KeepaliveParams(keepalive))
 	proto.RegisterGameServiceServer(server, gameService)
 	proto.RegisterPuzzleServiceServer(server, puzzleService)
 	log.Printf("Starting server %v\n", addr)
