@@ -9,6 +9,7 @@ message CreateGameRequest {
 message CreateGameResponse {
   string game_code = 1;
   string game_id = 2;
+  int32 index = 3;
 }
 
 message JoinGameRequest {
@@ -18,6 +19,7 @@ message JoinGameRequest {
 
 message JoinGameResponse {
   string game_id = 1;
+  int32 index = 2;
 }
 
 message RejoinGameRequest {
@@ -35,29 +37,37 @@ message ListenGame {
   string game_id = 2;
 }
 
+message Puzzle {
+  string id = 1;
+  string name = 2;
+  int32 seed = 3;
+  int32 difficulty = 4;
+  int32 roles = 5; // 0 - 5 permutations of the role
+}
+
 message GameEvent {
   enum Type {
     PLAYER_COUNT_CHANGED = 0;
     PUZZLE_STARTED = 1;
-    KEEPALIVE = 2;
   }
   Type type = 1;
   int32 count = 2;
-  string puzzle_id = 3;
+  Puzzle puzzle = 3;
 }
 
 message StartPuzzleRequest {
   string game_id = 1;
   string name = 2;
-  int32 time = 3;
-  string initial_conditions = 4;
+  int32 seed = 3;
+  int32 difficulty = 4;
+  int32 roles = 5; // 0 - 5 permutations of the role
 }
 
 service GameService {
   // unary services
   rpc Create(CreateGameRequest) returns (CreateGameResponse) {};
   rpc Join(JoinGameRequest) returns (JoinGameResponse) {};
-  rpc Rejoin(RejoinGameRequest) returns (google.protobuf.Empty) {};
+  rpc Rejoin(RejoinGameRequest) returns (JoinGameResponse) {};
   rpc Leave(LeaveGameRequest) returns (google.protobuf.Empty) {};
   rpc StartPuzzle(StartPuzzleRequest) returns (google.protobuf.Empty) {};
 
@@ -77,8 +87,6 @@ message PuzzleEvent {
   string key = 4;
   int32 value_int = 5;
   string value_string = 6;
-  bool durable = 7;
-  int32 sequence = 8; // will be 0 for transient events
 }
 
 service PuzzleService {
