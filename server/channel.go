@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"sync"
 )
 
@@ -12,6 +13,7 @@ type Channel struct {
 	lock         sync.RWMutex
 	open         bool
 	reconnecting bool
+	listening    bool
 }
 
 // NewChannel creates a new channel
@@ -22,6 +24,7 @@ func NewChannel() *Channel {
 		SkipBack:  make(chan interface{}, 1),
 		lock:      sync.RWMutex{},
 		open:      true,
+		listening: false,
 	}
 }
 
@@ -64,4 +67,22 @@ func (channel *Channel) Recover() {
 	if channel.open {
 		channel.Recovered <- true
 	}
+}
+
+// Listen enables listening
+func (channel *Channel) Listen() error {
+	channel.lock.Lock()
+	defer channel.lock.Unlock()
+	if channel.listening {
+		return fmt.Errorf("client_already_listening")
+	}
+	channel.listening = true
+	return nil
+}
+
+// Hangup disables listening
+func (channel *Channel) Hangup() {
+	channel.lock.Lock()
+	defer channel.lock.Unlock()
+	channel.listening = false
 }

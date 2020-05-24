@@ -338,6 +338,12 @@ func (service *GameService) Listen(request *proto.ListenGame, stream proto.GameS
 		return status.Errorf(codes.NotFound, "player_not_found")
 	}
 
+	err = player.GameChannel.Listen()
+	if err != nil {
+		return status.Errorf(codes.InvalidArgument, err.Error())
+	}
+	defer player.GameChannel.Hangup()
+
 	// next section is indicate recovery has occurred, and replay failed event
 	player.GameChannel.Recover()
 	select {
