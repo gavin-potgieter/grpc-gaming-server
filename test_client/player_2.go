@@ -3,8 +3,6 @@ package main
 import (
 	"sync"
 	"time"
-
-	"github.com/gavin-potgieter/sensense-server/test_client/proto"
 )
 
 type Player2 struct {
@@ -19,19 +17,6 @@ func NewPlayer2(railway *Railway) (*Player2, error) {
 	return &Player2{
 		Player: player,
 	}, nil
-}
-
-func (player2 *Player2) gameCallback(event *proto.GameEvent) error {
-	switch event.Type {
-	case proto.GameEvent_PLAYER_COUNT_CHANGED:
-		if event.Count == 3 {
-			err := player2.Player.StartPuzzle("P1", 15)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 func (player2 *Player2) Interact(group *sync.WaitGroup) error {
@@ -51,20 +36,15 @@ func (player2 *Player2) Interact(group *sync.WaitGroup) error {
 		}
 	}()
 
-	time.Sleep(10 * time.Millisecond)
-
 	err = player2.Player.DisconnectGame()
 	if err != nil {
 		Logger.Printf("ERROR %v %v\n", player2.Player.PlayerID, err)
 	}
 
-	err = player2.Player.RejoinGame()
-	if err != nil {
-		return err
-	}
+	time.Sleep(1 * time.Second)
 
 	go func() {
-		err := player2.Player.ListenGame(group, player2.gameCallback)
+		err := player2.Player.ListenGame(group, nil)
 		if err != nil {
 			Logger.Printf("ERROR %v %v\n", player2.Player.PlayerID, err)
 		}

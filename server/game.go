@@ -336,29 +336,30 @@ func (service *GameService) Listen(request *proto.ListenGame, stream proto.GameS
 		return status.Errorf(codes.NotFound, "player_not_found")
 	}
 
+	// next section is indicate recovery has occurred, and replay failed event
 	player.GameChannel.Recover()
-
-	// on listen, send the current player count to the client
-	stream.Send(&proto.GameEvent{
-		Type:  proto.GameEvent_PLAYER_COUNT_CHANGED,
-		Count: int32(len(game.Players)),
-	})
-	// on listen (if a puzzle is running), send the puzzle identifier (recovery logic)
-	if game.PuzzleID != nil {
-		stream.Send(&proto.GameEvent{
-			Type:     proto.GameEvent_PUZZLE_STARTED,
-			PuzzleId: game.PuzzleID.String(),
-		})
+	select {
+	case event := <-player.GameChannel.SkipBack:
+		gameEvent := event.(*proto.GameEvent)
+		err := stream.Send(gameEvent)
+		if err != nil { // failed to send to client... again
+			Logger.Printf("WARN GameService event retry failed; game:%v player:%v", game.ID, player.ID)
+			player.GameChannel.Retry(gameEvent)
+			go service.handleStreamDisconnected(game, player)
+			return status.Errorf(codes.DataLoss, "listener_aborted")
+		}
+	default:
+		break
 	}
 
 	// There are three things that could happen in the next code:
 	// 1. An event can be dequeued
 	// 2. The channel could be closed by the server
 	// 3. The channel could be closed by the client
-	channel := player.GameChannel.Channel
+	events := player.GameChannel.Events
 	for {
 		select {
-		case event, ok := <-channel:
+		case event, ok := <-events:
 			if !ok { // closed by server
 				return nil
 			}
@@ -367,6 +368,7 @@ func (service *GameService) Listen(request *proto.ListenGame, stream proto.GameS
 			err := stream.Send(gameEvent)
 			if err != nil { // failed to send to client
 				Logger.Printf("WARN GameService event send failed; game:%v player:%v", game.ID, player.ID)
+				player.GameChannel.Retry(gameEvent)
 				go service.handleStreamDisconnected(game, player)
 				return status.Errorf(codes.DataLoss, "listener_aborted")
 			}

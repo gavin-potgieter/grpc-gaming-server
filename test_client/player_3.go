@@ -36,6 +36,13 @@ func (player3 *Player3) Interact(group *sync.WaitGroup) error {
 		}
 	}()
 
+	time.Sleep(1000 * time.Millisecond)
+
+	err = player3.Player.StartPuzzle("P1", 15)
+	if err != nil {
+		return err
+	}
+
 	player3.Player.Railway.FirstPuzzleEnded.Lock()
 
 	time.Sleep(1 * time.Second)
