@@ -252,9 +252,11 @@ func (service *GameService) handleStreamDisconnected(game *Game, player *Player)
 	select {
 	case _, ok := <-player.GameChannel.Recovered:
 		if ok {
+			Logger.Printf("INFO GameService player recovered; game:%v player:%v", game.ID, player.ID)
 			return
 		}
 	case <-time.After(PlayerRecoveryTime):
+		Logger.Printf("INFO GameService player timeout; game:%v player:%v", game.ID, player.ID)
 	}
 	service.leave(game, player)
 }
@@ -326,20 +328,24 @@ func (service *GameService) StartPuzzle(context context.Context, request *proto.
 func (service *GameService) Listen(request *proto.ListenGame, stream proto.GameService_ListenServer) error {
 	Logger.Printf("INFO GameService listening; game:%v player:%v", request.GameId, request.PlayerId)
 	if request.PlayerId == "" {
+		Logger.Printf("WARN GameService invalid player; game:%v player:%v", request.GameId, request.PlayerId)
 		return status.Errorf(codes.InvalidArgument, "invalid_player_id")
 	}
 	game, err := service.getGame(request.GameId)
 	if err != nil {
+		Logger.Printf("WARN GameService game not found; game:%v player:%v", request.GameId, request.PlayerId)
 		return err
 	}
 	var player *Player
 	var ok bool
 	if player, ok = game.Players[request.PlayerId]; !ok {
+		Logger.Printf("WARN GameService player not found; game:%v player:%v", request.GameId, request.PlayerId)
 		return status.Errorf(codes.NotFound, "player_not_found")
 	}
 
 	err = player.GameChannel.Listen()
 	if err != nil {
+		Logger.Printf("WARN GameService multiple listeners; game:%v player:%v", game.ID, player.ID)
 		return status.Errorf(codes.InvalidArgument, err.Error())
 	}
 	defer player.GameChannel.Hangup()
@@ -352,6 +358,7 @@ func (service *GameService) Listen(request *proto.ListenGame, stream proto.GameS
 			return nil
 		}
 		gameEvent := event.(*proto.GameEvent)
+		Logger.Printf("DEBUG GameService recovering game:%v player:%v event:%+v", game.ID, player.ID, event)
 		err := stream.Send(gameEvent)
 		if err != nil { // failed to send to client... again
 			Logger.Printf("WARN GameService event retry failed; game:%v player:%v", game.ID, player.ID)
@@ -375,7 +382,7 @@ func (service *GameService) Listen(request *proto.ListenGame, stream proto.GameS
 				return nil
 			}
 			gameEvent := event.(*proto.GameEvent)
-			//Logger.Printf("DEBUG GameService sending game:%v player:%v event:%+v", game.ID, player.ID, event)
+			Logger.Printf("DEBUG GameService sending game:%v player:%v event:%+v", game.ID, player.ID, event)
 			err := stream.Send(gameEvent)
 			if err != nil { // failed to send to client
 				Logger.Printf("WARN GameService event send failed; game:%v player:%v", game.ID, player.ID)
