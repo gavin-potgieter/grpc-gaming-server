@@ -250,11 +250,13 @@ func (service *GameService) leave(game *Game, player *Player) {
 // can be aborted on a reconnect
 func (service *GameService) handleStreamDisconnected(game *Game, player *Player) {
 	select {
-	case <-player.GameChannel.Recovered:
-		return
+	case _, ok := <-player.GameChannel.Recovered:
+		if ok {
+			return
+		}
 	case <-time.After(PlayerRecoveryTime):
-		service.leave(game, player)
 	}
+	service.leave(game, player)
 }
 
 // getGame is a utility function to get the game from the game id
@@ -339,7 +341,10 @@ func (service *GameService) Listen(request *proto.ListenGame, stream proto.GameS
 	// next section is indicate recovery has occurred, and replay failed event
 	player.GameChannel.Recover()
 	select {
-	case event := <-player.GameChannel.SkipBack:
+	case event, ok := <-player.GameChannel.SkipBack:
+		if !ok { // closed by server
+			return nil
+		}
 		gameEvent := event.(*proto.GameEvent)
 		err := stream.Send(gameEvent)
 		if err != nil { // failed to send to client... again
