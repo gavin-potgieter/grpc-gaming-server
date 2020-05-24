@@ -47,7 +47,9 @@ func (channel *Channel) Retry(event interface{}) {
 		return
 	}
 	channel.reconnecting = true
-	channel.SkipBack <- event
+	if event != nil {
+		channel.SkipBack <- event
+	}
 }
 
 // Close a channel

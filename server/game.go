@@ -383,6 +383,7 @@ func (service *GameService) Listen(request *proto.ListenGame, stream proto.GameS
 			}
 		case <-stream.Context().Done(): // closed by client
 			Logger.Printf("WARN GameService connection disconnected by client; game:%v player:%v", game.ID, player.ID)
+			player.GameChannel.Retry(nil)
 			go service.handleStreamDisconnected(game, player)
 			return nil
 		}

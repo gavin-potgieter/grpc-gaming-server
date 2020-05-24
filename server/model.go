@@ -12,7 +12,7 @@ const (
 	// PlayerLimit is the total number of players
 	PlayerLimit = 3
 	// PlayerRecoveryTime is the time the game waits if a player is disconnected before gracefully cleaning up
-	PlayerRecoveryTime = 60 * time.Second
+	PlayerRecoveryTime = 20 * time.Second
 	// TimerInterval is the interval that timer events are sent in seconds
 	TimerInterval = 3 // 10
 
