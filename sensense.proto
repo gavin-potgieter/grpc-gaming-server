@@ -4,6 +4,8 @@ option go_package = ".;proto";
 
 message CreateGameRequest {
   string player_id = 1;
+  string game_name = 2;
+  int32 player_count = 3;
 }
 
 message CreateGameResponse {
@@ -14,7 +16,8 @@ message CreateGameResponse {
 
 message JoinGameRequest {
   string player_id = 1;
-  string game_code = 2;
+  string game_name = 2;
+  string game_code = 3;
 }
 
 message JoinGameResponse {
@@ -32,56 +35,55 @@ message LeaveGameRequest {
   string game_id = 2;
 }
 
+message RejoinGameResponse {
+  string game_id = 1;
+  int32 index = 2;
+}
+
 message ListenGame {
   string player_id = 1;
   string game_id = 2;
 }
 
-message Puzzle {
-  string id = 1;
-  string name = 2;
-  int32 seed = 3;
-  int32 difficulty = 4;
-  int32 roles = 5; // 0 - 5 permutations of the role
-}
-
 message GameEvent {
   enum Type {
     PLAYER_COUNT_CHANGED = 0;
-    PUZZLE_STARTED = 1;
+    LEVEL_STARTED = 1;
   }
   Type type = 1;
   int32 count = 2;
-  Puzzle puzzle = 3;
+  string level_id = 3;
+  map<string, string> options = 4;
 }
 
-message StartPuzzleRequest {
+message StartLevelRequest {
   string game_id = 1;
-  string name = 2;
-  int32 seed = 3;
-  int32 difficulty = 4;
-  int32 roles = 5; // 0 - 5 permutations of the role
+  map<string, string> options = 2;
+}
+
+message EndLevelRequest {
+  string level_id = 1;
 }
 
 service GameService {
   // unary services
   rpc Create(CreateGameRequest) returns (CreateGameResponse) {};
   rpc Join(JoinGameRequest) returns (JoinGameResponse) {};
-  rpc Rejoin(RejoinGameRequest) returns (JoinGameResponse) {};
+  rpc Rejoin(RejoinGameRequest) returns (RejoinGameResponse) {};
   rpc Leave(LeaveGameRequest) returns (google.protobuf.Empty) {};
-  rpc StartPuzzle(StartPuzzleRequest) returns (google.protobuf.Empty) {};
+  rpc StartLevel(StartLevelRequest) returns (google.protobuf.Empty) {};
 
   // streaming service
   rpc Listen(ListenGame) returns (stream GameEvent) {};
 }
 
-message PuzzleEvent {
+message LevelEvent {
   enum Type {
     DATA_NONE = 0;
     DATA_INT = 1;
     DATA_STRING = 2;
   }
-  string puzzle_id = 1;
+  string level_id = 1;
   string player_id = 2;
   Type type = 3;
   string key = 4;
@@ -89,7 +91,10 @@ message PuzzleEvent {
   string value_string = 6;
 }
 
-service PuzzleService {
+service LevelService {
+  // unary services
+  rpc End(EndLevelRequest) returns (google.protobuf.Empty) {};
+
   // streaming service
-  rpc Solve(stream PuzzleEvent) returns (stream PuzzleEvent) {};
+  rpc Play(stream LevelEvent) returns (stream LevelEvent) {};
 }

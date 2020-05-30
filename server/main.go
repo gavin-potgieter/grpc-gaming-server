@@ -32,7 +32,7 @@ func serve() {
 	if err != nil {
 		log.Fatalf("Cannot listen to address %s", addr)
 	}
-	puzzleService, err := NewPuzzleService()
+	puzzleService, err := NewLevelService()
 	if err != nil {
 		log.Fatalf("%v", err)
 	}
@@ -54,7 +54,7 @@ func serve() {
 
 	server := grpc.NewServer(grpc.KeepaliveEnforcementPolicy(policy), grpc.KeepaliveParams(keepalive))
 	proto.RegisterGameServiceServer(server, gameService)
-	proto.RegisterPuzzleServiceServer(server, puzzleService)
+	proto.RegisterLevelServiceServer(server, puzzleService)
 	log.Printf("Starting server %v\n", addr)
 	if err := server.Serve(conn); err != nil {
 		log.Fatalf("failed to serve: %v", err)

@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
-	"strconv"
 	"sync"
 	"time"
 
@@ -22,32 +21,35 @@ import (
 // TODO: apparently, one does not receive an error when the client tcp connection
 // fails... solution add a timed keepalive request to ping the client for signs of life.
 type GameService struct {
-	gamesLock     sync.Mutex          // the lock to serialize modification of the active games
-	gameCodes     map[int]*Game       // the active games [by code for search optimization] (for all players in all games)
-	games         map[uuid.UUID]*Game // the active games [by id] (for all players in all games)
-	puzzleService *PuzzleService      // the instance of the puzzle service to dispatch puzzles
+	gamesLock    sync.Mutex          // the lock to serialize modification of the active games
+	games        map[uuid.UUID]*Game // the active games [by id] (for all players in all games)
+	levelService *LevelService       // the instance of the level service to dispatch levels
 }
 
 // NewGameService creates a new GameService
-func NewGameService(ps *PuzzleService) (*GameService, error) {
+func NewGameService(ps *LevelService) (*GameService, error) {
 	return &GameService{
-		gamesLock:     sync.Mutex{},
-		gameCodes:     make(map[int]*Game, 0),
-		games:         make(map[uuid.UUID]*Game, 0),
-		puzzleService: ps,
+		gamesLock:    sync.Mutex{},
+		games:        make(map[uuid.UUID]*Game, 0),
+		levelService: ps,
 	}, nil
 }
 
 // createGameCode is a utility to generate game codes
-func createGameCode() int {
-	code, _ := rand.Int(rand.Reader, big.NewInt(500000))
-	return 500000 + int(code.Int64())
+func createGameCode() string {
+	random, _ := rand.Int(rand.Reader, big.NewInt(500000))
+	code := 500000 + int(random.Int64())
+	return fmt.Sprintf("%06.f", float64(code))
 }
 
 // isDuplicate is a utility to check if game codes are duplicated
-func isDuplicate(service *GameService, gameCode int) bool {
-	_, ok := service.gameCodes[gameCode]
-	return ok
+func isDuplicate(service *GameService, name, code string) bool {
+	for _, game := range service.games {
+		if game.Code == code && game.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 // Create creates a new game and adds the player creating it with a random role
@@ -62,69 +64,47 @@ func (service *GameService) Create(context context.Context, request *proto.Creat
 	}
 
 	// generates a unique game code (that isn't currently active)
-	code := 0
-	for code = createGameCode(); isDuplicate(service, code); code = createGameCode() {
+	code := ""
+	for code = createGameCode(); isDuplicate(service, request.GameName, code); code = createGameCode() {
 		// pass
 	}
 
-	role, _ := rand.Int(rand.Reader, big.NewInt(3))
 	game := &Game{
+		Name: request.GameName,
 		Code: code,
 		ID:   gameID,
 		Players: map[string]*Player{
-			request.PlayerId: NewPlayer(request.PlayerId, Role(role.Int64())),
+			request.PlayerId: NewPlayer(request.PlayerId, 0),
 		},
+		PlayerCount: int(request.PlayerCount),
 	}
 
 	service.gamesLock.Lock()
 	defer service.gamesLock.Unlock()
 
 	service.games[gameID] = game
-	service.gameCodes[code] = game
 
 	return &proto.CreateGameResponse{
-		GameCode: fmt.Sprintf("%06.f", float64(code)),
+		GameCode: game.Code,
 		GameId:   gameID.String(),
 	}, nil
 }
 
-// findUnassignedRole is a utility to find an unassigned role
-func findUnassignedRole(players map[string]*Player) (Role, error) {
-	for role := Role(0); role < PlayerLimit; role++ {
-		found := false
-		for _, player := range players {
-			if player.Role == role {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return role, nil
-		}
-	}
-	return Role(0), status.Errorf(codes.ResourceExhausted, "game_full")
-}
-
 // join is a shared function to have a player join or rejoin a game. It adds
-// the new player and assigns them a role, and notifies the other players. It
+// the new player and assigns them an index, and notifies the other players. It
 // exits gracefully if the player is already in the game.
 func (service *GameService) join(game *Game, playerID string) error {
 	if _, ok := game.Players[playerID]; ok {
 		return nil
 	}
-	if len(game.Players) >= PlayerLimit {
+	if len(game.Players) >= game.PlayerCount {
 		return status.Errorf(codes.ResourceExhausted, "game_full")
 	}
 
 	game.Lock.Lock()
 	defer game.Lock.Unlock()
 
-	role, err := findUnassignedRole(game.Players)
-	if err != nil {
-		return err
-	}
-
-	game.Players[playerID] = NewPlayer(playerID, role)
+	game.Players[playerID] = NewPlayer(playerID, len(game.Players))
 	service.notify(game, &proto.GameEvent{
 		Type:  proto.GameEvent_PLAYER_COUNT_CHANGED,
 		Count: int32(len(game.Players)),
@@ -138,14 +118,10 @@ func (service *GameService) Join(context context.Context, request *proto.JoinGam
 	if request.PlayerId == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid_player_id")
 	}
-	gameCode, err := strconv.Atoi(request.GameCode)
+
+	game, err := service.findGame(request.GameName, request.GameCode)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid_game_code")
-	}
-	var game *Game
-	var ok bool
-	if game, ok = service.gameCodes[gameCode]; !ok {
-		return nil, status.Errorf(codes.NotFound, "game_not_found")
+		return nil, err
 	}
 	err = service.join(game, request.PlayerId)
 	if err != nil {
@@ -153,11 +129,12 @@ func (service *GameService) Join(context context.Context, request *proto.JoinGam
 	}
 	return &proto.JoinGameResponse{
 		GameId: game.ID.String(),
+		Index:  int32(game.Players[request.PlayerId].Index),
 	}, nil
 }
 
 // Rejoin allows a player to rejoin the game
-func (service *GameService) Rejoin(context context.Context, request *proto.RejoinGameRequest) (*empty.Empty, error) {
+func (service *GameService) Rejoin(context context.Context, request *proto.RejoinGameRequest) (*proto.RejoinGameResponse, error) {
 	Logger.Printf("INFO GameService rejoining player:%v game:%v\n", request.PlayerId, request.GameId)
 	if request.PlayerId == "" {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid_player_id")
@@ -171,7 +148,10 @@ func (service *GameService) Rejoin(context context.Context, request *proto.Rejoi
 	if err != nil {
 		return nil, err
 	}
-	return &empty.Empty{}, nil
+	return &proto.RejoinGameResponse{
+		GameId: game.ID.String(),
+		Index:  int32(game.Players[request.PlayerId].Index),
+	}, nil
 }
 
 // deleteGame is a utility function for cleaning up left or abandoned games
@@ -185,7 +165,6 @@ func (service *GameService) deleteGame(gameID uuid.UUID) {
 	service.gamesLock.Lock()
 	defer service.gamesLock.Unlock()
 
-	delete(service.gameCodes, game.Code)
 	delete(service.games, game.ID)
 }
 
@@ -239,8 +218,6 @@ func (service *GameService) leave(game *Game, player *Player) {
 // also notifies all remaining players of the disconnect. It gives the player a
 // recovery window before removing them effectively blocking new players from taking
 // their spot in the game (thereby shielding the other players from noisy network issues).
-// TODO: future might prefer to add a context with a cancellation so that the recovery window
-// can be aborted on a reconnect
 func (service *GameService) handleStreamDisconnected(game *Game, player *Player) {
 	select {
 	case _, ok := <-player.GameChannel.Recovered:
@@ -248,7 +225,7 @@ func (service *GameService) handleStreamDisconnected(game *Game, player *Player)
 			Logger.Printf("INFO GameService player recovered; game:%v player:%v", game.ID, player.ID)
 			return
 		}
-	case <-time.After(PlayerRecoveryTime):
+	case <-time.After(GameRecoveryWindow):
 		Logger.Printf("INFO GameService player timeout; game:%v player:%v", game.ID, player.ID)
 	}
 	service.leave(game, player)
@@ -268,40 +245,47 @@ func (service *GameService) getGame(id string) (*Game, error) {
 	return game, nil
 }
 
-// StartPuzzle starts a puzzle
-func (service *GameService) StartPuzzle(context context.Context, request *proto.StartPuzzleRequest) (*empty.Empty, error) {
-	Logger.Printf("INFO GameService starting puzzle; game:%v name:%v", request.GameId, request.Name)
-	if request.Name == "" {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid_name")
+// findGame is a utility function to get the game from the game code
+func (service *GameService) findGame(name string, code string) (*Game, error) {
+	for _, game := range service.games {
+		if game.Code == code && game.Name == name {
+			return game, nil
+		}
 	}
-	if request.Time <= 0 {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid_time")
-	}
+
+	return nil, status.Errorf(codes.NotFound, "game_not_found")
+}
+
+// StartLevel starts a level
+func (service *GameService) StartLevel(context context.Context, request *proto.StartLevelRequest) (*empty.Empty, error) {
+	Logger.Printf("INFO GameService starting level; game:%v options:%+v", request.GameId, request.Options)
+
 	game, err := service.getGame(request.GameId)
 	if err != nil {
 		return nil, err
 	}
-	if len(game.Players) != PlayerLimit {
+	if len(game.Players) != game.PlayerCount {
 		return nil, status.Errorf(codes.FailedPrecondition, "insufficient_players")
 	}
 
 	game.Lock.Lock()
 	defer game.Lock.Unlock()
 
-	if game.PuzzleID != nil {
-		return nil, status.Errorf(codes.FailedPrecondition, "puzzle_in_progress")
+	if game.LevelID != nil {
+		return nil, status.Errorf(codes.FailedPrecondition, "level_in_progress")
 	}
-	puzzleID, err := service.puzzleService.CreatePuzzle(request.Name, request.InitialConditions, int(request.Time), game.Players, func() {
-		Logger.Printf("INFO GameService ending puzzle; game:%v name:%v", request.GameId, request.Name)
-		game.PuzzleID = nil
+	levelID, err := service.levelService.CreateLevel(game.Players, func() {
+		Logger.Printf("INFO GameService ending level; game:%v options:%+v", request.GameId, request.Options)
+		game.LevelID = nil
 	})
 	if err != nil {
 		return nil, err
 	}
-	game.PuzzleID = &puzzleID
+	game.LevelID = &levelID
 	service.notify(game, &proto.GameEvent{
-		Type:     proto.GameEvent_PUZZLE_STARTED,
-		PuzzleId: puzzleID.String(),
+		Type:    proto.GameEvent_LEVEL_STARTED,
+		Options: request.Options,
+		LevelId: game.LevelID.String(),
 	})
 
 	return &empty.Empty{}, nil
@@ -333,7 +317,7 @@ func (service *GameService) Listen(request *proto.ListenGame, stream proto.GameS
 	}
 	defer player.GameChannel.Hangup()
 
-	// next section is indicate recovery has occurred, and replay failed event
+	// next section is to indicate recovery has occurred, and replay failed event
 	player.GameChannel.Recover()
 	select {
 	case event, ok := <-player.GameChannel.SkipBack:

@@ -27,13 +27,13 @@ type Player struct {
 	gameConnection   *grpc.ClientConn
 	gameService      proto.GameServiceClient
 	puzzleConnection *grpc.ClientConn
-	puzzleService    proto.PuzzleServiceClient
-	eventChannel     chan *proto.PuzzleEvent
+	puzzleService    proto.LevelServiceClient
+	eventChannel     chan *proto.LevelEvent
 }
 
 type GameEventCallback func(*proto.GameEvent) error
 
-type PuzzleEventCallback func(*proto.PuzzleEvent) error
+type LevelEventCallback func(*proto.LevelEvent) error
 
 // connectGame is used to create the game; the only reason connections are
 // being created twice is to allow for testing
@@ -61,8 +61,8 @@ func (player *Player) connectPuzzle() error {
 	}
 
 	player.puzzleConnection = conn
-	player.puzzleService = proto.NewPuzzleServiceClient(conn)
-	player.eventChannel = make(chan *proto.PuzzleEvent, 10)
+	player.puzzleService = proto.NewLevelServiceClient(conn)
+	player.eventChannel = make(chan *proto.LevelEvent, 10)
 	//Logger.Printf("DEBUG create event channel %v", player.PlayerID)
 
 	return nil
@@ -114,13 +114,16 @@ func (player *Player) CreateGame() error {
 	}
 
 	response, err := player.gameService.Create(context.Background(), &proto.CreateGameRequest{
-		PlayerId: player.PlayerID,
+		PlayerId:    player.PlayerID,
+		GameName:    "sensense",
+		PlayerCount: 3,
 	})
 	if err != nil {
 		return err
 	}
 	GameCode = response.GameCode
 	player.GameID = response.GameId
+	player.Role = int(response.Index)
 	Logger.Printf("INFO %v created game; code: %v game_id: %v", player.PlayerID, GameCode, player.GameID)
 	return nil
 }
@@ -134,11 +137,13 @@ func (player *Player) JoinGame() error {
 	response, err := player.gameService.Join(context.Background(), &proto.JoinGameRequest{
 		PlayerId: player.PlayerID,
 		GameCode: GameCode,
+		GameName: "sensense",
 	})
 	if err != nil {
 		return err
 	}
 	player.GameID = response.GameId
+	player.Role = int(response.Index)
 	Logger.Printf("INFO %v joined game; code: %v game_id: %v", player.PlayerID, GameCode, player.GameID)
 	return nil
 }
@@ -185,8 +190,9 @@ func (player *Player) ListenGame(group *sync.WaitGroup, callback GameEventCallba
 		}
 
 		switch event.Type {
-		case proto.GameEvent_PUZZLE_STARTED:
-			PuzzleID = event.PuzzleId
+		case proto.GameEvent_LEVEL_STARTED:
+			PuzzleID = event.LevelId
+			player.PuzzleName = event.Options["Name"]
 			go func() {
 				player.ListenPuzzle(0)
 			}()
@@ -225,11 +231,13 @@ func (player *Player) StartPuzzle(name string, time int) error {
 		return err
 	}
 
-	_, err = player.gameService.StartPuzzle(context.Background(), &proto.StartPuzzleRequest{
-		GameId:            player.GameID,
-		Name:              name,
-		InitialConditions: "some initial conditions",
-		Time:              int32(time),
+	_, err = player.gameService.StartLevel(context.Background(), &proto.StartLevelRequest{
+		GameId: player.GameID,
+		Options: map[string]string{
+			"Name":              name,
+			"InitialConditions": "some initial conditions",
+			"Time":              string(time),
+		},
 	})
 	if err != nil {
 		return err
@@ -244,16 +252,13 @@ func (player *Player) ListenPuzzle(sequence int) error {
 		return err
 	}
 
-	stream, err := player.puzzleService.Solve(context.Background())
+	stream, err := player.puzzleService.Play(context.Background())
 	if err != nil {
 		return err
 	}
-	err = stream.Send(&proto.PuzzleEvent{
+	err = stream.Send(&proto.LevelEvent{
 		PlayerId: player.PlayerID,
-		PuzzleId: PuzzleID,
-		Type:     proto.PuzzleEvent_DATA_INT,
-		Key:      "SEQN",
-		ValueInt: int32(sequence),
+		LevelId:  PuzzleID,
 	})
 	if err != nil {
 		return err
@@ -269,6 +274,8 @@ func (player *Player) ListenPuzzle(sequence int) error {
 		}
 	}()
 
+	player.SendFirstPuzzleEvent()
+
 	Logger.Printf("INFO %v listening to puzzle; puzzle_id: %v", player.PlayerID, PuzzleID)
 	for {
 		event, err := stream.Recv()
@@ -280,26 +287,11 @@ func (player *Player) ListenPuzzle(sequence int) error {
 		}
 		Logger.Printf("INFO %v %+v\n", player.PlayerID, event)
 
-		switch event.Key {
-		case "ROLE":
-			player.Role = int(event.ValueInt)
-			player.SendFirstPuzzleEvent()
-		case "NAME":
-			player.PuzzleName = event.ValueString
-		case "RSLT":
-			if player.PuzzleName == "P1" && player.Role == Deaf {
-				player.Railway.FirstPuzzleEnded.Unlock()
-			}
-			if player.PuzzleName == "P2" && player.Role == Deaf {
-				player.Railway.SecondPuzzleEnded.Unlock()
-			}
-		default:
-			player.ProcessPuzzleEvent(event)
-		}
+		player.ProcessPuzzleEvent(event)
 	}
 }
 
-func (player *Player) SendEvent(event *proto.PuzzleEvent) {
+func (player *Player) SendEvent(event *proto.LevelEvent) {
 	player.eventChannel <- event
 }
 
@@ -307,57 +299,53 @@ func (player *Player) SendFirstPuzzleEvent() {
 	switch player.PuzzleName {
 	case "P1":
 		if player.Role == Mute {
-			player.SendStringEvent("wave", true) //0
+			player.SendLevelEvent("wave", 0) //0
 		}
 	case "P2":
 		if player.Role == Deaf {
-			player.SendStringEvent("gulp", true) //0
+			player.SendLevelEvent("gulp", 0) //0
 		}
 	}
 }
 
-func (player *Player) ProcessPuzzleEvent(event *proto.PuzzleEvent) {
-	if !event.Durable {
-		return
-	}
-
+func (player *Player) ProcessPuzzleEvent(event *proto.LevelEvent) {
 	switch player.PuzzleName {
 	case "P1":
-		switch event.Sequence {
+		switch event.ValueInt {
 		case 0:
 			if player.Role == Deaf {
-				player.SendStringEvent("shout uselessly", false)
-				player.SendStringEvent("shout usefully", true) //1
+				player.SendLevelEvent("shout uselessly", -1)
+				player.SendLevelEvent("shout usefully", 1) //1
 			}
 			if player.Role == Blind {
-				player.SendStringEvent("cricket chirps", false)
+				player.SendLevelEvent("cricket chirps", -1)
 			}
 		case 1:
 			if player.Role == Blind {
-				player.SendIntEvent("touch_pos", 5, true) //2
-				player.SendIntEvent("touch_pos", 2, false)
-				player.SendIntEvent("touch_pos", 3, false)
+				player.SendLevelEvent("touch_pos", 2) //2
+				player.SendLevelEvent("touch_pos", -1)
 			}
 		case 2:
 			if player.Role == Mute {
-				player.SendStringEvent("spin", true) //3
+				player.SendLevelEvent("spin", 3) //3
 			}
 		case 3:
 			if player.Role == Deaf {
-				player.Win()
+				player.EndPuzzle()
+				player.Railway.FirstPuzzleEnded.Unlock()
 			}
 		}
 	case "P2":
-		switch event.Sequence {
+		switch event.ValueInt {
 		case 0:
 			if player.Role == Blind {
-				player.SendStringEvent("tapped", false)
-				player.SendStringEvent("held", true) //1
+				player.SendLevelEvent("tapped", -1)
+				player.SendLevelEvent("held", 1) //1
 			}
 		case 1:
 			if player.Role == Mute {
-				player.SendStringEvent("twiddled knob", true)         //2
-				player.SendStringEvent("twiddled another knob", true) //3
+				player.SendLevelEvent("twiddled knob", 2)         //2
+				player.SendLevelEvent("twiddled another knob", 3) //3
 			}
 		case 3:
 			if player.Role == Mute {
@@ -372,53 +360,33 @@ func (player *Player) ProcessPuzzleEvent(event *proto.PuzzleEvent) {
 				}()
 			}
 			if player.Role == Deaf {
-				player.SendStringEvent("swiped up", true)   //4
-				player.SendStringEvent("swiped down", true) //5
+				player.SendLevelEvent("swiped up", 4)   //4
+				player.SendLevelEvent("swiped down", 5) //5
 			}
 
 		case 5:
 			if player.Role == Mute {
 				time.Sleep(5 * time.Second)
-				player.SendStringEvent("recovered", true) //6
+				player.SendLevelEvent("recovered", 6) //6
 			}
 		case 6:
 			if player.Role == Blind {
-				player.Abort()
+				player.EndPuzzle()
+				player.Railway.SecondPuzzleEnded.Unlock()
 			}
 		}
 	}
 
 }
 
-func (player *Player) SendIntEvent(key string, value int, durable bool) {
-	player.SendEvent(&proto.PuzzleEvent{
-		Type:     proto.PuzzleEvent_DATA_INT,
+func (player *Player) EndPuzzle() {
+	player.puzzleService.End(context.Background(), &proto.EndLevelRequest{LevelId: PuzzleID})
+}
+
+func (player *Player) SendLevelEvent(key string, next int) {
+	player.SendEvent(&proto.LevelEvent{
+		Type:     proto.LevelEvent_DATA_INT,
 		Key:      key,
-		ValueInt: int32(value),
-		Durable:  durable,
-	})
-}
-
-func (player *Player) SendStringEvent(value string, durable bool) {
-	player.SendEvent(&proto.PuzzleEvent{
-		Type:        proto.PuzzleEvent_DATA_STRING,
-		ValueString: value,
-		Durable:     durable,
-	})
-}
-
-func (player *Player) Win() {
-	player.SendEvent(&proto.PuzzleEvent{
-		Type:        proto.PuzzleEvent_DATA_STRING,
-		Key:         "RSLT",
-		ValueString: "WON",
-	})
-}
-
-func (player *Player) Abort() {
-	player.SendEvent(&proto.PuzzleEvent{
-		Type:        proto.PuzzleEvent_DATA_STRING,
-		Key:         "RSLT",
-		ValueString: "ABORT",
+		ValueInt: int32(next),
 	})
 }
