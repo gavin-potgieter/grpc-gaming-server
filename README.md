@@ -13,6 +13,12 @@ protoc sensense.proto --go_out=plugins=grpc:server/proto
 protoc sensense.proto --go_out=plugins=grpc:test_client/proto
 ```
 
+## Generating client stub
+
+```bash
+tools_2_26_0\protoc.exe -I client sensense.proto --csharp_out=client --grpc_out=client --plugin=protoc-gen-grpc=tools_2_26_0\grpc_csharp_plugin.exe --proto_path=.
+```
+
 ## Building the Server
 
 ```bash
