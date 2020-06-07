@@ -4,13 +4,13 @@ The server for the Sensense game
 ## Generating server stub
 
 ```bash
-protoc sensense.proto --go_out=plugins=grpc:server/proto
+protoc grpc-gaming-server.proto --go_out=plugins=grpc:server/proto
 ```
 
 ## Generating test client stub
 
 ```bash
-protoc sensense.proto --go_out=plugins=grpc:test_client/proto
+protoc grpc-gaming-server.proto --go_out=plugins=grpc:test_client/proto
 ```
 
 ## Generating client stub
@@ -29,5 +29,5 @@ cd server
 ## Testing
 
 ```bash
-grpcurl -proto sensense.proto -plaintext -d '{"phone_id": "12345"}' localhost:50051 GameService/StartGame
+grpcurl -proto grpc-gaming-server.proto -plaintext -d '{"phone_id": "12345"}' localhost:50051 GameService/StartGame
 ```

@@ -41,5 +41,7 @@ func (player1 *Player1) Interact(group *sync.WaitGroup) error {
 	player1.Player.Railway.GameEndedSignal.Wait()
 	player1.Player.Railway.GameEndedSignal.L.Unlock()
 
+	group.Done()
+
 	return nil
 }
