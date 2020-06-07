@@ -24,8 +24,10 @@ var (
 )
 
 const (
-	// RecoveryWindow is the time the match waits if a player is disconnected before gracefully cleaning up
-	RecoveryWindow = 20 * time.Second
+	// recoveryWindow is the time the match waits if a player is disconnected before gracefully cleaning up
+	recoveryWindow    = 20 * time.Second
+	idleWindow        = 30 * time.Minute
+	scavengerInterval = 15 * time.Second
 )
 
 // match holds the state of an in progress match while players are being matched for a game
@@ -36,6 +38,7 @@ type match struct {
 	Players     map[string]*player // the players of the game
 	GameID      string             // the game ID once the match is complete
 	lock        sync.Mutex         // the lock to serialize the match from modification
+	lastUpdated time.Time          // the last time the match was updated
 }
 
 // player is a game player
@@ -65,11 +68,27 @@ type Service struct {
 
 // NewService creates a new MatchService
 func NewService(gameServerURL string) (*Service, error) {
-	return &Service{
+	service := &Service{
 		lock:          sync.Mutex{},
 		matches:       make(map[string]map[string]*match, 0),
 		gameServerURL: gameServerURL,
-	}, nil
+	}
+	go service.scavenge()
+	return service, nil
+}
+
+// scavenge cleans up idle matches
+func (service *Service) scavenge() {
+	for {
+		time.Sleep(scavengerInterval)
+		for _, g := range service.matches {
+			for _, m := range g {
+				if m.lastUpdated.Add(idleWindow).Before(time.Now().UTC()) {
+					service.delete(m)
+				}
+			}
+		}
+	}
 }
 
 // createCode is a utility to generate match codes
@@ -121,6 +140,7 @@ func (service *Service) match(request *proto.MatchRequest) (*match, *player, err
 		go service.complete(m)
 	}
 
+	m.lastUpdated = time.Now().UTC()
 	return m, p, nil
 }
 
@@ -129,7 +149,7 @@ func (service *Service) delete(m *match) {
 	Logger.Printf("DEBUG MatchService delete match")
 
 	select {
-	case <-time.After(RecoveryWindow):
+	case <-time.After(recoveryWindow):
 		Logger.Printf("INFO MatchService deleting match after window; game:%v code:%v", m.Game, m.Code)
 	}
 
@@ -186,7 +206,7 @@ func (service *Service) handleStreamDisconnected(m *match, p *player) {
 			Logger.Printf("INFO MatchService player recovered; game:%v code:%v player:%v", m.Game, m.Code, p.ID)
 			return
 		}
-	case <-time.After(RecoveryWindow):
+	case <-time.After(recoveryWindow):
 		Logger.Printf("INFO MatchService player timeout; game:%v code:%v player:%v", m.Game, m.Code, p.ID)
 	}
 	service.leave(m, p)
@@ -223,9 +243,10 @@ func (service *Service) find(game string, code string) (*match, error) {
 	}
 
 	m := &match{
-		Game:    game,
-		Code:    code,
-		Players: make(map[string]*player, 0),
+		Game:        game,
+		Code:        code,
+		Players:     make(map[string]*player, 0),
+		lastUpdated: time.Now().UTC(),
 	}
 	service.matches[game][code] = m
 	return m, nil

@@ -41,7 +41,8 @@ func (player *Player) connectMatch() error {
 	if player.gameConnection != nil {
 		return nil
 	}
-	//52.143.158.107:80
+	//52.143.158.107:5000
+	//localhost:8080
 	conn, err := grpc.Dial("localhost:8080", grpc.WithInsecure())
 	if err != nil {
 		return err
@@ -108,10 +109,6 @@ func NewPlayer(playerID string, railway *Railway) (*Player, error) {
 }
 
 func (player *Player) Match(group *sync.WaitGroup, callback MatchEventCallback) error {
-	if group != nil {
-		defer group.Done()
-	}
-
 	err := player.connectMatch()
 	if err != nil {
 		return err
@@ -204,8 +201,9 @@ func (player *Player) Play() error {
 			return err
 		}
 		Logger.Printf("INFO %v %+v\n", player.PlayerID, event)
-
-		player.ProcessPuzzleEvent(event)
+		if event.Key != "PLAYER_COUNT" {
+			player.ProcessPuzzleEvent(event)
+		}
 	}
 }
 

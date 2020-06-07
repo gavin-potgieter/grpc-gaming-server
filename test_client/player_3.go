@@ -38,6 +38,6 @@ func (player3 *Player3) Interact(group *sync.WaitGroup) error {
 	player3.Player.Railway.GameEndedSignal.L.Unlock()
 
 	group.Done()
-
+	Logger.Printf("INFO Player done %v", player3.Player.PlayerID)
 	return nil
 }
