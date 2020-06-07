@@ -15,21 +15,23 @@ protoc grpc-gaming-server.proto --go_out=plugins=grpc:server/proto
 protoc grpc-gaming-server.proto --go_out=plugins=grpc:test_client/proto
 ```
 
-## Generating client stub
+## Generating client stub for C# clients
 
 ```bash
 tools_2_26_0\protoc.exe -I client sensense.proto --csharp_out=client --grpc_out=client --plugin=protoc-gen-grpc=tools_2_26_0\grpc_csharp_plugin.exe --proto_path=.
 ```
 
-## Building the Server
+## Building the server
 
 ```bash
 cd server
 ./build
 ```
 
-## Testing
+## Building the test client
 
 ```bash
-grpcurl -proto grpc-gaming-server.proto -plaintext -d '{"phone_id": "12345"}' localhost:50051 GameService/StartGame
+cd test_client
+go build
+./test_client
 ```
