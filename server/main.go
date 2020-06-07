@@ -7,8 +7,11 @@ import (
 	"os"
 	"time"
 
+	"server/game"
+	"server/match"
+	"server/proto"
+
 	"github.com/akamensky/argparse"
-	"github.com/gavin-potgieter/sensense-server/server/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 )
@@ -21,6 +24,7 @@ var (
 func serve() {
 	parser := argparse.NewParser("print", "SenSense Server (c) 2020")
 	port := parser.String("p", "port", &argparse.Options{Required: false, Help: "the port to run on", Default: "8080"})
+	gameServerURL := parser.String("g", "game-server-url", &argparse.Options{Required: false, Help: "the URL of the game server", Default: "localhost:8080"})
 	err := parser.Parse(os.Args)
 	if err != nil {
 		log.Fatal(parser.Usage(err))
@@ -32,11 +36,11 @@ func serve() {
 	if err != nil {
 		log.Fatalf("Cannot listen to address %s", addr)
 	}
-	puzzleService, err := NewLevelService()
+	gameService, err := game.NewService()
 	if err != nil {
 		log.Fatalf("%v", err)
 	}
-	gameService, err := NewGameService(puzzleService)
+	matchService, err := match.NewService(*gameServerURL)
 	if err != nil {
 		log.Fatalf("%v", err)
 	}
@@ -47,14 +51,14 @@ func serve() {
 	}
 
 	keepalive := keepalive.ServerParameters{
-		MaxConnectionIdle: 30 * time.Minute,
+		MaxConnectionIdle: 5 * time.Minute,
 		Time:              1 * time.Second,
 		Timeout:           2 * time.Second,
 	}
 
 	server := grpc.NewServer(grpc.KeepaliveEnforcementPolicy(policy), grpc.KeepaliveParams(keepalive))
+	proto.RegisterMatchServiceServer(server, matchService)
 	proto.RegisterGameServiceServer(server, gameService)
-	proto.RegisterLevelServiceServer(server, puzzleService)
 	log.Printf("Starting server %v\n", addr)
 	if err := server.Serve(conn); err != nil {
 		log.Fatalf("failed to serve: %v", err)

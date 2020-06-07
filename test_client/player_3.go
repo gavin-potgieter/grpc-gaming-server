@@ -20,48 +20,24 @@ func NewPlayer3(railway *Railway) (*Player3, error) {
 }
 
 func (player3 *Player3) Interact(group *sync.WaitGroup) error {
-	player3.Player.Railway.GameCreatedSignal.L.Lock()
-	player3.Player.Railway.GameCreatedSignal.Wait()
-	player3.Player.Railway.GameCreatedSignal.L.Unlock()
+	player3.Player.Railway.MatchCreatedSignal.L.Lock()
+	player3.Player.Railway.MatchCreatedSignal.Wait()
+	player3.Player.Railway.MatchCreatedSignal.L.Unlock()
 
-	err := player3.Player.JoinGame()
-	if err != nil {
-		return err
-	}
+	time.Sleep(300 * time.Millisecond)
 
 	go func() {
-		err := player3.Player.ListenGame(group, nil)
+		err := player3.Player.Match(group, nil)
 		if err != nil {
 			Logger.Printf("ERROR %v %v\n", player3.Player.PlayerID, err)
 		}
 	}()
 
-	time.Sleep(1000 * time.Millisecond)
-
-	err = player3.Player.StartPuzzle("P1", 15)
-	if err != nil {
-		return err
-	}
-
-	player3.Player.Railway.FirstPuzzleEnded.Lock()
-
-	time.Sleep(1 * time.Second)
-
-	err = player3.Player.StartPuzzle("P2", 10)
-	if err != nil {
-		return err
-	}
-
-	player3.Player.Railway.SecondPuzzleEnded.Lock()
-
 	player3.Player.Railway.GameEndedSignal.L.Lock()
-	player3.Player.Railway.GameEndedSignal.Broadcast()
+	player3.Player.Railway.GameEndedSignal.Wait()
 	player3.Player.Railway.GameEndedSignal.L.Unlock()
 
-	err = player3.Player.Leave()
-	if err != nil {
-		return err
-	}
+	group.Done()
 
 	return nil
 }

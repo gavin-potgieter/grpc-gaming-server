@@ -12,9 +12,10 @@ var (
 	_, filename = path.Split(os.Args[0])
 	// Logger is the default logger
 	Logger = log.New(os.Stdout, filename+" ", log.LstdFlags)
-	// GameCode the game code
-	GameCode string
-	PuzzleID string
+	// MatchCode the match code
+	MatchCode string
+	// PuzzleName is the puzzle name
+	PuzzleName string = "P1"
 )
 
 func main() {

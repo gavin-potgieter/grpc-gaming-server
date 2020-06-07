@@ -9,7 +9,6 @@ package proto
 import (
 	context "context"
 	proto "github.com/golang/protobuf/proto"
-	empty "github.com/golang/protobuf/ptypes/empty"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -30,22 +29,80 @@ const (
 // of the legacy proto package is being used.
 const _ = proto.ProtoPackageIsVersion4
 
+type MatchEvent_Type int32
+
+const (
+	MatchEvent_UPDATED   MatchEvent_Type = 0
+	MatchEvent_COMPLETED MatchEvent_Type = 1
+)
+
+// Enum value maps for MatchEvent_Type.
+var (
+	MatchEvent_Type_name = map[int32]string{
+		0: "UPDATED",
+		1: "COMPLETED",
+	}
+	MatchEvent_Type_value = map[string]int32{
+		"UPDATED":   0,
+		"COMPLETED": 1,
+	}
+)
+
+func (x MatchEvent_Type) Enum() *MatchEvent_Type {
+	p := new(MatchEvent_Type)
+	*p = x
+	return p
+}
+
+func (x MatchEvent_Type) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (MatchEvent_Type) Descriptor() protoreflect.EnumDescriptor {
+	return file_sensense_proto_enumTypes[0].Descriptor()
+}
+
+func (MatchEvent_Type) Type() protoreflect.EnumType {
+	return &file_sensense_proto_enumTypes[0]
+}
+
+func (x MatchEvent_Type) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use MatchEvent_Type.Descriptor instead.
+func (MatchEvent_Type) EnumDescriptor() ([]byte, []int) {
+	return file_sensense_proto_rawDescGZIP(), []int{1, 0}
+}
+
 type GameEvent_Type int32
 
 const (
-	GameEvent_PLAYER_COUNT_CHANGED GameEvent_Type = 0
-	GameEvent_LEVEL_STARTED        GameEvent_Type = 1
+	GameEvent_DATA_NONE   GameEvent_Type = 0
+	GameEvent_DATA_INT    GameEvent_Type = 1
+	GameEvent_DATA_STRING GameEvent_Type = 2
+	GameEvent_DATA_MAP    GameEvent_Type = 3
+	GameEvent_DATA_BYTES  GameEvent_Type = 4
+	GameEvent_DATA_MIXED  GameEvent_Type = 5
 )
 
 // Enum value maps for GameEvent_Type.
 var (
 	GameEvent_Type_name = map[int32]string{
-		0: "PLAYER_COUNT_CHANGED",
-		1: "LEVEL_STARTED",
+		0: "DATA_NONE",
+		1: "DATA_INT",
+		2: "DATA_STRING",
+		3: "DATA_MAP",
+		4: "DATA_BYTES",
+		5: "DATA_MIXED",
 	}
 	GameEvent_Type_value = map[string]int32{
-		"PLAYER_COUNT_CHANGED": 0,
-		"LEVEL_STARTED":        1,
+		"DATA_NONE":   0,
+		"DATA_INT":    1,
+		"DATA_STRING": 2,
+		"DATA_MAP":    3,
+		"DATA_BYTES":  4,
+		"DATA_MIXED":  5,
 	}
 )
 
@@ -60,11 +117,11 @@ func (x GameEvent_Type) String() string {
 }
 
 func (GameEvent_Type) Descriptor() protoreflect.EnumDescriptor {
-	return file_sensense_proto_enumTypes[0].Descriptor()
+	return file_sensense_proto_enumTypes[1].Descriptor()
 }
 
 func (GameEvent_Type) Type() protoreflect.EnumType {
-	return &file_sensense_proto_enumTypes[0]
+	return &file_sensense_proto_enumTypes[1]
 }
 
 func (x GameEvent_Type) Number() protoreflect.EnumNumber {
@@ -73,70 +130,22 @@ func (x GameEvent_Type) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use GameEvent_Type.Descriptor instead.
 func (GameEvent_Type) EnumDescriptor() ([]byte, []int) {
-	return file_sensense_proto_rawDescGZIP(), []int{8, 0}
+	return file_sensense_proto_rawDescGZIP(), []int{5, 0}
 }
 
-type LevelEvent_Type int32
-
-const (
-	LevelEvent_DATA_NONE   LevelEvent_Type = 0
-	LevelEvent_DATA_INT    LevelEvent_Type = 1
-	LevelEvent_DATA_STRING LevelEvent_Type = 2
-)
-
-// Enum value maps for LevelEvent_Type.
-var (
-	LevelEvent_Type_name = map[int32]string{
-		0: "DATA_NONE",
-		1: "DATA_INT",
-		2: "DATA_STRING",
-	}
-	LevelEvent_Type_value = map[string]int32{
-		"DATA_NONE":   0,
-		"DATA_INT":    1,
-		"DATA_STRING": 2,
-	}
-)
-
-func (x LevelEvent_Type) Enum() *LevelEvent_Type {
-	p := new(LevelEvent_Type)
-	*p = x
-	return p
-}
-
-func (x LevelEvent_Type) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (LevelEvent_Type) Descriptor() protoreflect.EnumDescriptor {
-	return file_sensense_proto_enumTypes[1].Descriptor()
-}
-
-func (LevelEvent_Type) Type() protoreflect.EnumType {
-	return &file_sensense_proto_enumTypes[1]
-}
-
-func (x LevelEvent_Type) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use LevelEvent_Type.Descriptor instead.
-func (LevelEvent_Type) EnumDescriptor() ([]byte, []int) {
-	return file_sensense_proto_rawDescGZIP(), []int{11, 0}
-}
-
-type CreateGameRequest struct {
+type MatchRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
 	PlayerId    string `protobuf:"bytes,1,opt,name=player_id,json=playerId,proto3" json:"player_id,omitempty"`
-	GameName    string `protobuf:"bytes,2,opt,name=game_name,json=gameName,proto3" json:"game_name,omitempty"`
-	PlayerCount int32  `protobuf:"varint,3,opt,name=player_count,json=playerCount,proto3" json:"player_count,omitempty"`
+	Game        string `protobuf:"bytes,2,opt,name=game,proto3" json:"game,omitempty"`
+	PlayerLimit int32  `protobuf:"varint,3,opt,name=player_limit,json=playerLimit,proto3" json:"player_limit,omitempty"`
+	Code        string `protobuf:"bytes,4,opt,name=code,proto3" json:"code,omitempty"`
 }
 
-func (x *CreateGameRequest) Reset() {
-	*x = CreateGameRequest{}
+func (x *MatchRequest) Reset() {
+	*x = MatchRequest{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_sensense_proto_msgTypes[0]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -144,13 +153,13 @@ func (x *CreateGameRequest) Reset() {
 	}
 }
 
-func (x *CreateGameRequest) String() string {
+func (x *MatchRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*CreateGameRequest) ProtoMessage() {}
+func (*MatchRequest) ProtoMessage() {}
 
-func (x *CreateGameRequest) ProtoReflect() protoreflect.Message {
+func (x *MatchRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_sensense_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -162,44 +171,53 @@ func (x *CreateGameRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use CreateGameRequest.ProtoReflect.Descriptor instead.
-func (*CreateGameRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use MatchRequest.ProtoReflect.Descriptor instead.
+func (*MatchRequest) Descriptor() ([]byte, []int) {
 	return file_sensense_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *CreateGameRequest) GetPlayerId() string {
+func (x *MatchRequest) GetPlayerId() string {
 	if x != nil {
 		return x.PlayerId
 	}
 	return ""
 }
 
-func (x *CreateGameRequest) GetGameName() string {
+func (x *MatchRequest) GetGame() string {
 	if x != nil {
-		return x.GameName
+		return x.Game
 	}
 	return ""
 }
 
-func (x *CreateGameRequest) GetPlayerCount() int32 {
+func (x *MatchRequest) GetPlayerLimit() int32 {
 	if x != nil {
-		return x.PlayerCount
+		return x.PlayerLimit
 	}
 	return 0
 }
 
-type CreateGameResponse struct {
+func (x *MatchRequest) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+type MatchEvent struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	GameCode string `protobuf:"bytes,1,opt,name=game_code,json=gameCode,proto3" json:"game_code,omitempty"`
-	GameId   string `protobuf:"bytes,2,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`
-	Index    int32  `protobuf:"varint,3,opt,name=index,proto3" json:"index,omitempty"`
+	Type        MatchEvent_Type `protobuf:"varint,1,opt,name=type,proto3,enum=MatchEvent_Type" json:"type,omitempty"`
+	Code        string          `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`
+	PlayerIndex int32           `protobuf:"varint,3,opt,name=player_index,json=playerIndex,proto3" json:"player_index,omitempty"`
+	PlayerCount int32           `protobuf:"varint,4,opt,name=player_count,json=playerCount,proto3" json:"player_count,omitempty"`
+	GameId      string          `protobuf:"bytes,5,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`
 }
 
-func (x *CreateGameResponse) Reset() {
-	*x = CreateGameResponse{}
+func (x *MatchEvent) Reset() {
+	*x = MatchEvent{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_sensense_proto_msgTypes[1]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -207,13 +225,13 @@ func (x *CreateGameResponse) Reset() {
 	}
 }
 
-func (x *CreateGameResponse) String() string {
+func (x *MatchEvent) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*CreateGameResponse) ProtoMessage() {}
+func (*MatchEvent) ProtoMessage() {}
 
-func (x *CreateGameResponse) ProtoReflect() protoreflect.Message {
+func (x *MatchEvent) ProtoReflect() protoreflect.Message {
 	mi := &file_sensense_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -225,494 +243,44 @@ func (x *CreateGameResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use CreateGameResponse.ProtoReflect.Descriptor instead.
-func (*CreateGameResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use MatchEvent.ProtoReflect.Descriptor instead.
+func (*MatchEvent) Descriptor() ([]byte, []int) {
 	return file_sensense_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *CreateGameResponse) GetGameCode() string {
-	if x != nil {
-		return x.GameCode
-	}
-	return ""
-}
-
-func (x *CreateGameResponse) GetGameId() string {
-	if x != nil {
-		return x.GameId
-	}
-	return ""
-}
-
-func (x *CreateGameResponse) GetIndex() int32 {
-	if x != nil {
-		return x.Index
-	}
-	return 0
-}
-
-type JoinGameRequest struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	PlayerId string `protobuf:"bytes,1,opt,name=player_id,json=playerId,proto3" json:"player_id,omitempty"`
-	GameName string `protobuf:"bytes,2,opt,name=game_name,json=gameName,proto3" json:"game_name,omitempty"`
-	GameCode string `protobuf:"bytes,3,opt,name=game_code,json=gameCode,proto3" json:"game_code,omitempty"`
-}
-
-func (x *JoinGameRequest) Reset() {
-	*x = JoinGameRequest{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_sensense_proto_msgTypes[2]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *JoinGameRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*JoinGameRequest) ProtoMessage() {}
-
-func (x *JoinGameRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sensense_proto_msgTypes[2]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use JoinGameRequest.ProtoReflect.Descriptor instead.
-func (*JoinGameRequest) Descriptor() ([]byte, []int) {
-	return file_sensense_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *JoinGameRequest) GetPlayerId() string {
-	if x != nil {
-		return x.PlayerId
-	}
-	return ""
-}
-
-func (x *JoinGameRequest) GetGameName() string {
-	if x != nil {
-		return x.GameName
-	}
-	return ""
-}
-
-func (x *JoinGameRequest) GetGameCode() string {
-	if x != nil {
-		return x.GameCode
-	}
-	return ""
-}
-
-type JoinGameResponse struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	GameId string `protobuf:"bytes,1,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`
-	Index  int32  `protobuf:"varint,2,opt,name=index,proto3" json:"index,omitempty"`
-}
-
-func (x *JoinGameResponse) Reset() {
-	*x = JoinGameResponse{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_sensense_proto_msgTypes[3]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *JoinGameResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*JoinGameResponse) ProtoMessage() {}
-
-func (x *JoinGameResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_sensense_proto_msgTypes[3]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use JoinGameResponse.ProtoReflect.Descriptor instead.
-func (*JoinGameResponse) Descriptor() ([]byte, []int) {
-	return file_sensense_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *JoinGameResponse) GetGameId() string {
-	if x != nil {
-		return x.GameId
-	}
-	return ""
-}
-
-func (x *JoinGameResponse) GetIndex() int32 {
-	if x != nil {
-		return x.Index
-	}
-	return 0
-}
-
-type RejoinGameRequest struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	PlayerId string `protobuf:"bytes,1,opt,name=player_id,json=playerId,proto3" json:"player_id,omitempty"`
-	GameId   string `protobuf:"bytes,2,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`
-}
-
-func (x *RejoinGameRequest) Reset() {
-	*x = RejoinGameRequest{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_sensense_proto_msgTypes[4]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *RejoinGameRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RejoinGameRequest) ProtoMessage() {}
-
-func (x *RejoinGameRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sensense_proto_msgTypes[4]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RejoinGameRequest.ProtoReflect.Descriptor instead.
-func (*RejoinGameRequest) Descriptor() ([]byte, []int) {
-	return file_sensense_proto_rawDescGZIP(), []int{4}
-}
-
-func (x *RejoinGameRequest) GetPlayerId() string {
-	if x != nil {
-		return x.PlayerId
-	}
-	return ""
-}
-
-func (x *RejoinGameRequest) GetGameId() string {
-	if x != nil {
-		return x.GameId
-	}
-	return ""
-}
-
-type LeaveGameRequest struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	PlayerId string `protobuf:"bytes,1,opt,name=player_id,json=playerId,proto3" json:"player_id,omitempty"`
-	GameId   string `protobuf:"bytes,2,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`
-}
-
-func (x *LeaveGameRequest) Reset() {
-	*x = LeaveGameRequest{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_sensense_proto_msgTypes[5]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *LeaveGameRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*LeaveGameRequest) ProtoMessage() {}
-
-func (x *LeaveGameRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sensense_proto_msgTypes[5]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use LeaveGameRequest.ProtoReflect.Descriptor instead.
-func (*LeaveGameRequest) Descriptor() ([]byte, []int) {
-	return file_sensense_proto_rawDescGZIP(), []int{5}
-}
-
-func (x *LeaveGameRequest) GetPlayerId() string {
-	if x != nil {
-		return x.PlayerId
-	}
-	return ""
-}
-
-func (x *LeaveGameRequest) GetGameId() string {
-	if x != nil {
-		return x.GameId
-	}
-	return ""
-}
-
-type RejoinGameResponse struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	GameId string `protobuf:"bytes,1,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`
-	Index  int32  `protobuf:"varint,2,opt,name=index,proto3" json:"index,omitempty"`
-}
-
-func (x *RejoinGameResponse) Reset() {
-	*x = RejoinGameResponse{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_sensense_proto_msgTypes[6]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *RejoinGameResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RejoinGameResponse) ProtoMessage() {}
-
-func (x *RejoinGameResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_sensense_proto_msgTypes[6]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RejoinGameResponse.ProtoReflect.Descriptor instead.
-func (*RejoinGameResponse) Descriptor() ([]byte, []int) {
-	return file_sensense_proto_rawDescGZIP(), []int{6}
-}
-
-func (x *RejoinGameResponse) GetGameId() string {
-	if x != nil {
-		return x.GameId
-	}
-	return ""
-}
-
-func (x *RejoinGameResponse) GetIndex() int32 {
-	if x != nil {
-		return x.Index
-	}
-	return 0
-}
-
-type ListenGame struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	PlayerId string `protobuf:"bytes,1,opt,name=player_id,json=playerId,proto3" json:"player_id,omitempty"`
-	GameId   string `protobuf:"bytes,2,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`
-}
-
-func (x *ListenGame) Reset() {
-	*x = ListenGame{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_sensense_proto_msgTypes[7]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *ListenGame) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListenGame) ProtoMessage() {}
-
-func (x *ListenGame) ProtoReflect() protoreflect.Message {
-	mi := &file_sensense_proto_msgTypes[7]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListenGame.ProtoReflect.Descriptor instead.
-func (*ListenGame) Descriptor() ([]byte, []int) {
-	return file_sensense_proto_rawDescGZIP(), []int{7}
-}
-
-func (x *ListenGame) GetPlayerId() string {
-	if x != nil {
-		return x.PlayerId
-	}
-	return ""
-}
-
-func (x *ListenGame) GetGameId() string {
-	if x != nil {
-		return x.GameId
-	}
-	return ""
-}
-
-type GameEvent struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Type    GameEvent_Type    `protobuf:"varint,1,opt,name=type,proto3,enum=GameEvent_Type" json:"type,omitempty"`
-	Count   int32             `protobuf:"varint,2,opt,name=count,proto3" json:"count,omitempty"`
-	LevelId string            `protobuf:"bytes,3,opt,name=level_id,json=levelId,proto3" json:"level_id,omitempty"`
-	Options map[string]string `protobuf:"bytes,4,rep,name=options,proto3" json:"options,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-}
-
-func (x *GameEvent) Reset() {
-	*x = GameEvent{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_sensense_proto_msgTypes[8]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *GameEvent) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GameEvent) ProtoMessage() {}
-
-func (x *GameEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_sensense_proto_msgTypes[8]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GameEvent.ProtoReflect.Descriptor instead.
-func (*GameEvent) Descriptor() ([]byte, []int) {
-	return file_sensense_proto_rawDescGZIP(), []int{8}
-}
-
-func (x *GameEvent) GetType() GameEvent_Type {
+func (x *MatchEvent) GetType() MatchEvent_Type {
 	if x != nil {
 		return x.Type
 	}
-	return GameEvent_PLAYER_COUNT_CHANGED
+	return MatchEvent_UPDATED
 }
 
-func (x *GameEvent) GetCount() int32 {
+func (x *MatchEvent) GetCode() string {
 	if x != nil {
-		return x.Count
+		return x.Code
+	}
+	return ""
+}
+
+func (x *MatchEvent) GetPlayerIndex() int32 {
+	if x != nil {
+		return x.PlayerIndex
 	}
 	return 0
 }
 
-func (x *GameEvent) GetLevelId() string {
+func (x *MatchEvent) GetPlayerCount() int32 {
 	if x != nil {
-		return x.LevelId
+		return x.PlayerCount
 	}
-	return ""
+	return 0
 }
 
-func (x *GameEvent) GetOptions() map[string]string {
-	if x != nil {
-		return x.Options
-	}
-	return nil
-}
-
-type StartLevelRequest struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	GameId  string            `protobuf:"bytes,1,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`
-	Options map[string]string `protobuf:"bytes,2,rep,name=options,proto3" json:"options,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-}
-
-func (x *StartLevelRequest) Reset() {
-	*x = StartLevelRequest{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_sensense_proto_msgTypes[9]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *StartLevelRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*StartLevelRequest) ProtoMessage() {}
-
-func (x *StartLevelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sensense_proto_msgTypes[9]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use StartLevelRequest.ProtoReflect.Descriptor instead.
-func (*StartLevelRequest) Descriptor() ([]byte, []int) {
-	return file_sensense_proto_rawDescGZIP(), []int{9}
-}
-
-func (x *StartLevelRequest) GetGameId() string {
+func (x *MatchEvent) GetGameId() string {
 	if x != nil {
 		return x.GameId
 	}
 	return ""
-}
-
-func (x *StartLevelRequest) GetOptions() map[string]string {
-	if x != nil {
-		return x.Options
-	}
-	return nil
 }
 
 type EndLevelRequest struct {
@@ -726,7 +294,7 @@ type EndLevelRequest struct {
 func (x *EndLevelRequest) Reset() {
 	*x = EndLevelRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sensense_proto_msgTypes[10]
+		mi := &file_sensense_proto_msgTypes[2]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -739,7 +307,7 @@ func (x *EndLevelRequest) String() string {
 func (*EndLevelRequest) ProtoMessage() {}
 
 func (x *EndLevelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sensense_proto_msgTypes[10]
+	mi := &file_sensense_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -752,7 +320,7 @@ func (x *EndLevelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EndLevelRequest.ProtoReflect.Descriptor instead.
 func (*EndLevelRequest) Descriptor() ([]byte, []int) {
-	return file_sensense_proto_rawDescGZIP(), []int{10}
+	return file_sensense_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *EndLevelRequest) GetLevelId() string {
@@ -762,36 +330,31 @@ func (x *EndLevelRequest) GetLevelId() string {
 	return ""
 }
 
-type LevelEvent struct {
+type CreateGameRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	LevelId     string          `protobuf:"bytes,1,opt,name=level_id,json=levelId,proto3" json:"level_id,omitempty"`
-	PlayerId    string          `protobuf:"bytes,2,opt,name=player_id,json=playerId,proto3" json:"player_id,omitempty"`
-	Type        LevelEvent_Type `protobuf:"varint,3,opt,name=type,proto3,enum=LevelEvent_Type" json:"type,omitempty"`
-	Key         string          `protobuf:"bytes,4,opt,name=key,proto3" json:"key,omitempty"`
-	ValueInt    int32           `protobuf:"varint,5,opt,name=value_int,json=valueInt,proto3" json:"value_int,omitempty"`
-	ValueString string          `protobuf:"bytes,6,opt,name=value_string,json=valueString,proto3" json:"value_string,omitempty"`
+	PlayerId []string `protobuf:"bytes,1,rep,name=player_id,json=playerId,proto3" json:"player_id,omitempty"`
 }
 
-func (x *LevelEvent) Reset() {
-	*x = LevelEvent{}
+func (x *CreateGameRequest) Reset() {
+	*x = CreateGameRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_sensense_proto_msgTypes[11]
+		mi := &file_sensense_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
 }
 
-func (x *LevelEvent) String() string {
+func (x *CreateGameRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*LevelEvent) ProtoMessage() {}
+func (*CreateGameRequest) ProtoMessage() {}
 
-func (x *LevelEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_sensense_proto_msgTypes[11]
+func (x *CreateGameRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sensense_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -802,172 +365,238 @@ func (x *LevelEvent) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use LevelEvent.ProtoReflect.Descriptor instead.
-func (*LevelEvent) Descriptor() ([]byte, []int) {
-	return file_sensense_proto_rawDescGZIP(), []int{11}
+// Deprecated: Use CreateGameRequest.ProtoReflect.Descriptor instead.
+func (*CreateGameRequest) Descriptor() ([]byte, []int) {
+	return file_sensense_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *LevelEvent) GetLevelId() string {
+func (x *CreateGameRequest) GetPlayerId() []string {
 	if x != nil {
-		return x.LevelId
+		return x.PlayerId
+	}
+	return nil
+}
+
+type CreateGameResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	GameId string `protobuf:"bytes,1,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`
+}
+
+func (x *CreateGameResponse) Reset() {
+	*x = CreateGameResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_sensense_proto_msgTypes[4]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *CreateGameResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateGameResponse) ProtoMessage() {}
+
+func (x *CreateGameResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sensense_proto_msgTypes[4]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateGameResponse.ProtoReflect.Descriptor instead.
+func (*CreateGameResponse) Descriptor() ([]byte, []int) {
+	return file_sensense_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *CreateGameResponse) GetGameId() string {
+	if x != nil {
+		return x.GameId
 	}
 	return ""
 }
 
-func (x *LevelEvent) GetPlayerId() string {
+type GameEvent struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	GameId      string            `protobuf:"bytes,1,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`
+	PlayerId    string            `protobuf:"bytes,2,opt,name=player_id,json=playerId,proto3" json:"player_id,omitempty"`
+	Type        GameEvent_Type    `protobuf:"varint,3,opt,name=type,proto3,enum=GameEvent_Type" json:"type,omitempty"`
+	Key         string            `protobuf:"bytes,4,opt,name=key,proto3" json:"key,omitempty"`
+	ValueInt    int32             `protobuf:"varint,5,opt,name=value_int,json=valueInt,proto3" json:"value_int,omitempty"`
+	ValueString string            `protobuf:"bytes,6,opt,name=value_string,json=valueString,proto3" json:"value_string,omitempty"`
+	ValueMap    map[string]string `protobuf:"bytes,7,rep,name=value_map,json=valueMap,proto3" json:"value_map,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	ValueBytes  []byte            `protobuf:"bytes,8,opt,name=value_bytes,json=valueBytes,proto3" json:"value_bytes,omitempty"`
+}
+
+func (x *GameEvent) Reset() {
+	*x = GameEvent{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_sensense_proto_msgTypes[5]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *GameEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GameEvent) ProtoMessage() {}
+
+func (x *GameEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_sensense_proto_msgTypes[5]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GameEvent.ProtoReflect.Descriptor instead.
+func (*GameEvent) Descriptor() ([]byte, []int) {
+	return file_sensense_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *GameEvent) GetGameId() string {
+	if x != nil {
+		return x.GameId
+	}
+	return ""
+}
+
+func (x *GameEvent) GetPlayerId() string {
 	if x != nil {
 		return x.PlayerId
 	}
 	return ""
 }
 
-func (x *LevelEvent) GetType() LevelEvent_Type {
+func (x *GameEvent) GetType() GameEvent_Type {
 	if x != nil {
 		return x.Type
 	}
-	return LevelEvent_DATA_NONE
+	return GameEvent_DATA_NONE
 }
 
-func (x *LevelEvent) GetKey() string {
+func (x *GameEvent) GetKey() string {
 	if x != nil {
 		return x.Key
 	}
 	return ""
 }
 
-func (x *LevelEvent) GetValueInt() int32 {
+func (x *GameEvent) GetValueInt() int32 {
 	if x != nil {
 		return x.ValueInt
 	}
 	return 0
 }
 
-func (x *LevelEvent) GetValueString() string {
+func (x *GameEvent) GetValueString() string {
 	if x != nil {
 		return x.ValueString
 	}
 	return ""
 }
 
+func (x *GameEvent) GetValueMap() map[string]string {
+	if x != nil {
+		return x.ValueMap
+	}
+	return nil
+}
+
+func (x *GameEvent) GetValueBytes() []byte {
+	if x != nil {
+		return x.ValueBytes
+	}
+	return nil
+}
+
 var File_sensense_proto protoreflect.FileDescriptor
 
 var file_sensense_proto_rawDesc = []byte{
 	0x0a, 0x0e, 0x73, 0x65, 0x6e, 0x73, 0x65, 0x6e, 0x73, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
-	0x1a, 0x1b, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75,
-	0x66, 0x2f, 0x65, 0x6d, 0x70, 0x74, 0x79, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0x70, 0x0a,
-	0x11, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x47, 0x61, 0x6d, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65,
-	0x73, 0x74, 0x12, 0x1b, 0x0a, 0x09, 0x70, 0x6c, 0x61, 0x79, 0x65, 0x72, 0x5f, 0x69, 0x64, 0x18,
-	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x70, 0x6c, 0x61, 0x79, 0x65, 0x72, 0x49, 0x64, 0x12,
-	0x1b, 0x0a, 0x09, 0x67, 0x61, 0x6d, 0x65, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x02, 0x20, 0x01,
-	0x28, 0x09, 0x52, 0x08, 0x67, 0x61, 0x6d, 0x65, 0x4e, 0x61, 0x6d, 0x65, 0x12, 0x21, 0x0a, 0x0c,
-	0x70, 0x6c, 0x61, 0x79, 0x65, 0x72, 0x5f, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x18, 0x03, 0x20, 0x01,
-	0x28, 0x05, 0x52, 0x0b, 0x70, 0x6c, 0x61, 0x79, 0x65, 0x72, 0x43, 0x6f, 0x75, 0x6e, 0x74, 0x22,
-	0x60, 0x0a, 0x12, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x47, 0x61, 0x6d, 0x65, 0x52, 0x65, 0x73,
-	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x1b, 0x0a, 0x09, 0x67, 0x61, 0x6d, 0x65, 0x5f, 0x63, 0x6f,
-	0x64, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x67, 0x61, 0x6d, 0x65, 0x43, 0x6f,
-	0x64, 0x65, 0x12, 0x17, 0x0a, 0x07, 0x67, 0x61, 0x6d, 0x65, 0x5f, 0x69, 0x64, 0x18, 0x02, 0x20,
-	0x01, 0x28, 0x09, 0x52, 0x06, 0x67, 0x61, 0x6d, 0x65, 0x49, 0x64, 0x12, 0x14, 0x0a, 0x05, 0x69,
-	0x6e, 0x64, 0x65, 0x78, 0x18, 0x03, 0x20, 0x01, 0x28, 0x05, 0x52, 0x05, 0x69, 0x6e, 0x64, 0x65,
-	0x78, 0x22, 0x68, 0x0a, 0x0f, 0x4a, 0x6f, 0x69, 0x6e, 0x47, 0x61, 0x6d, 0x65, 0x52, 0x65, 0x71,
-	0x75, 0x65, 0x73, 0x74, 0x12, 0x1b, 0x0a, 0x09, 0x70, 0x6c, 0x61, 0x79, 0x65, 0x72, 0x5f, 0x69,
-	0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x70, 0x6c, 0x61, 0x79, 0x65, 0x72, 0x49,
-	0x64, 0x12, 0x1b, 0x0a, 0x09, 0x67, 0x61, 0x6d, 0x65, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x02,
-	0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x67, 0x61, 0x6d, 0x65, 0x4e, 0x61, 0x6d, 0x65, 0x12, 0x1b,
-	0x0a, 0x09, 0x67, 0x61, 0x6d, 0x65, 0x5f, 0x63, 0x6f, 0x64, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28,
-	0x09, 0x52, 0x08, 0x67, 0x61, 0x6d, 0x65, 0x43, 0x6f, 0x64, 0x65, 0x22, 0x41, 0x0a, 0x10, 0x4a,
-	0x6f, 0x69, 0x6e, 0x47, 0x61, 0x6d, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12,
-	0x17, 0x0a, 0x07, 0x67, 0x61, 0x6d, 0x65, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09,
-	0x52, 0x06, 0x67, 0x61, 0x6d, 0x65, 0x49, 0x64, 0x12, 0x14, 0x0a, 0x05, 0x69, 0x6e, 0x64, 0x65,
-	0x78, 0x18, 0x02, 0x20, 0x01, 0x28, 0x05, 0x52, 0x05, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x22, 0x49,
-	0x0a, 0x11, 0x52, 0x65, 0x6a, 0x6f, 0x69, 0x6e, 0x47, 0x61, 0x6d, 0x65, 0x52, 0x65, 0x71, 0x75,
-	0x65, 0x73, 0x74, 0x12, 0x1b, 0x0a, 0x09, 0x70, 0x6c, 0x61, 0x79, 0x65, 0x72, 0x5f, 0x69, 0x64,
-	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x70, 0x6c, 0x61, 0x79, 0x65, 0x72, 0x49, 0x64,
-	0x12, 0x17, 0x0a, 0x07, 0x67, 0x61, 0x6d, 0x65, 0x5f, 0x69, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28,
-	0x09, 0x52, 0x06, 0x67, 0x61, 0x6d, 0x65, 0x49, 0x64, 0x22, 0x48, 0x0a, 0x10, 0x4c, 0x65, 0x61,
-	0x76, 0x65, 0x47, 0x61, 0x6d, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x1b, 0x0a,
-	0x09, 0x70, 0x6c, 0x61, 0x79, 0x65, 0x72, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09,
-	0x52, 0x08, 0x70, 0x6c, 0x61, 0x79, 0x65, 0x72, 0x49, 0x64, 0x12, 0x17, 0x0a, 0x07, 0x67, 0x61,
-	0x6d, 0x65, 0x5f, 0x69, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x67, 0x61, 0x6d,
-	0x65, 0x49, 0x64, 0x22, 0x43, 0x0a, 0x12, 0x52, 0x65, 0x6a, 0x6f, 0x69, 0x6e, 0x47, 0x61, 0x6d,
-	0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x17, 0x0a, 0x07, 0x67, 0x61, 0x6d,
-	0x65, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x67, 0x61, 0x6d, 0x65,
-	0x49, 0x64, 0x12, 0x14, 0x0a, 0x05, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x18, 0x02, 0x20, 0x01, 0x28,
-	0x05, 0x52, 0x05, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x22, 0x42, 0x0a, 0x0a, 0x4c, 0x69, 0x73, 0x74,
-	0x65, 0x6e, 0x47, 0x61, 0x6d, 0x65, 0x12, 0x1b, 0x0a, 0x09, 0x70, 0x6c, 0x61, 0x79, 0x65, 0x72,
-	0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x70, 0x6c, 0x61, 0x79, 0x65,
-	0x72, 0x49, 0x64, 0x12, 0x17, 0x0a, 0x07, 0x67, 0x61, 0x6d, 0x65, 0x5f, 0x69, 0x64, 0x18, 0x02,
-	0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x67, 0x61, 0x6d, 0x65, 0x49, 0x64, 0x22, 0x85, 0x02, 0x0a,
-	0x09, 0x47, 0x61, 0x6d, 0x65, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x12, 0x23, 0x0a, 0x04, 0x74, 0x79,
-	0x70, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x0f, 0x2e, 0x47, 0x61, 0x6d, 0x65, 0x45,
-	0x76, 0x65, 0x6e, 0x74, 0x2e, 0x54, 0x79, 0x70, 0x65, 0x52, 0x04, 0x74, 0x79, 0x70, 0x65, 0x12,
-	0x14, 0x0a, 0x05, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x05, 0x52, 0x05,
-	0x63, 0x6f, 0x75, 0x6e, 0x74, 0x12, 0x19, 0x0a, 0x08, 0x6c, 0x65, 0x76, 0x65, 0x6c, 0x5f, 0x69,
-	0x64, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x6c, 0x65, 0x76, 0x65, 0x6c, 0x49, 0x64,
-	0x12, 0x31, 0x0a, 0x07, 0x6f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x18, 0x04, 0x20, 0x03, 0x28,
-	0x0b, 0x32, 0x17, 0x2e, 0x47, 0x61, 0x6d, 0x65, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x2e, 0x4f, 0x70,
-	0x74, 0x69, 0x6f, 0x6e, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x52, 0x07, 0x6f, 0x70, 0x74, 0x69,
-	0x6f, 0x6e, 0x73, 0x1a, 0x3a, 0x0a, 0x0c, 0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x45, 0x6e,
-	0x74, 0x72, 0x79, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09,
-	0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02,
-	0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x22,
-	0x33, 0x0a, 0x04, 0x54, 0x79, 0x70, 0x65, 0x12, 0x18, 0x0a, 0x14, 0x50, 0x4c, 0x41, 0x59, 0x45,
-	0x52, 0x5f, 0x43, 0x4f, 0x55, 0x4e, 0x54, 0x5f, 0x43, 0x48, 0x41, 0x4e, 0x47, 0x45, 0x44, 0x10,
-	0x00, 0x12, 0x11, 0x0a, 0x0d, 0x4c, 0x45, 0x56, 0x45, 0x4c, 0x5f, 0x53, 0x54, 0x41, 0x52, 0x54,
-	0x45, 0x44, 0x10, 0x01, 0x22, 0xa3, 0x01, 0x0a, 0x11, 0x53, 0x74, 0x61, 0x72, 0x74, 0x4c, 0x65,
-	0x76, 0x65, 0x6c, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x17, 0x0a, 0x07, 0x67, 0x61,
-	0x6d, 0x65, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x67, 0x61, 0x6d,
-	0x65, 0x49, 0x64, 0x12, 0x39, 0x0a, 0x07, 0x6f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x18, 0x02,
-	0x20, 0x03, 0x28, 0x0b, 0x32, 0x1f, 0x2e, 0x53, 0x74, 0x61, 0x72, 0x74, 0x4c, 0x65, 0x76, 0x65,
-	0x6c, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x2e, 0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x73,
-	0x45, 0x6e, 0x74, 0x72, 0x79, 0x52, 0x07, 0x6f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x1a, 0x3a,
-	0x0a, 0x0c, 0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10,
-	0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79,
-	0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52,
-	0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x22, 0x2c, 0x0a, 0x0f, 0x45, 0x6e,
-	0x64, 0x4c, 0x65, 0x76, 0x65, 0x6c, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x19, 0x0a,
-	0x08, 0x6c, 0x65, 0x76, 0x65, 0x6c, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52,
-	0x07, 0x6c, 0x65, 0x76, 0x65, 0x6c, 0x49, 0x64, 0x22, 0xf2, 0x01, 0x0a, 0x0a, 0x4c, 0x65, 0x76,
-	0x65, 0x6c, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x12, 0x19, 0x0a, 0x08, 0x6c, 0x65, 0x76, 0x65, 0x6c,
+	0x22, 0x76, 0x0a, 0x0c, 0x4d, 0x61, 0x74, 0x63, 0x68, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
+	0x12, 0x1b, 0x0a, 0x09, 0x70, 0x6c, 0x61, 0x79, 0x65, 0x72, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20,
+	0x01, 0x28, 0x09, 0x52, 0x08, 0x70, 0x6c, 0x61, 0x79, 0x65, 0x72, 0x49, 0x64, 0x12, 0x12, 0x0a,
+	0x04, 0x67, 0x61, 0x6d, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x67, 0x61, 0x6d,
+	0x65, 0x12, 0x21, 0x0a, 0x0c, 0x70, 0x6c, 0x61, 0x79, 0x65, 0x72, 0x5f, 0x6c, 0x69, 0x6d, 0x69,
+	0x74, 0x18, 0x03, 0x20, 0x01, 0x28, 0x05, 0x52, 0x0b, 0x70, 0x6c, 0x61, 0x79, 0x65, 0x72, 0x4c,
+	0x69, 0x6d, 0x69, 0x74, 0x12, 0x12, 0x0a, 0x04, 0x63, 0x6f, 0x64, 0x65, 0x18, 0x04, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x04, 0x63, 0x6f, 0x64, 0x65, 0x22, 0xc9, 0x01, 0x0a, 0x0a, 0x4d, 0x61, 0x74,
+	0x63, 0x68, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x12, 0x24, 0x0a, 0x04, 0x74, 0x79, 0x70, 0x65, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x10, 0x2e, 0x4d, 0x61, 0x74, 0x63, 0x68, 0x45, 0x76, 0x65,
+	0x6e, 0x74, 0x2e, 0x54, 0x79, 0x70, 0x65, 0x52, 0x04, 0x74, 0x79, 0x70, 0x65, 0x12, 0x12, 0x0a,
+	0x04, 0x63, 0x6f, 0x64, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x63, 0x6f, 0x64,
+	0x65, 0x12, 0x21, 0x0a, 0x0c, 0x70, 0x6c, 0x61, 0x79, 0x65, 0x72, 0x5f, 0x69, 0x6e, 0x64, 0x65,
+	0x78, 0x18, 0x03, 0x20, 0x01, 0x28, 0x05, 0x52, 0x0b, 0x70, 0x6c, 0x61, 0x79, 0x65, 0x72, 0x49,
+	0x6e, 0x64, 0x65, 0x78, 0x12, 0x21, 0x0a, 0x0c, 0x70, 0x6c, 0x61, 0x79, 0x65, 0x72, 0x5f, 0x63,
+	0x6f, 0x75, 0x6e, 0x74, 0x18, 0x04, 0x20, 0x01, 0x28, 0x05, 0x52, 0x0b, 0x70, 0x6c, 0x61, 0x79,
+	0x65, 0x72, 0x43, 0x6f, 0x75, 0x6e, 0x74, 0x12, 0x17, 0x0a, 0x07, 0x67, 0x61, 0x6d, 0x65, 0x5f,
+	0x69, 0x64, 0x18, 0x05, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x67, 0x61, 0x6d, 0x65, 0x49, 0x64,
+	0x22, 0x22, 0x0a, 0x04, 0x54, 0x79, 0x70, 0x65, 0x12, 0x0b, 0x0a, 0x07, 0x55, 0x50, 0x44, 0x41,
+	0x54, 0x45, 0x44, 0x10, 0x00, 0x12, 0x0d, 0x0a, 0x09, 0x43, 0x4f, 0x4d, 0x50, 0x4c, 0x45, 0x54,
+	0x45, 0x44, 0x10, 0x01, 0x22, 0x2c, 0x0a, 0x0f, 0x45, 0x6e, 0x64, 0x4c, 0x65, 0x76, 0x65, 0x6c,
+	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x19, 0x0a, 0x08, 0x6c, 0x65, 0x76, 0x65, 0x6c,
 	0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x6c, 0x65, 0x76, 0x65, 0x6c,
-	0x49, 0x64, 0x12, 0x1b, 0x0a, 0x09, 0x70, 0x6c, 0x61, 0x79, 0x65, 0x72, 0x5f, 0x69, 0x64, 0x18,
-	0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x70, 0x6c, 0x61, 0x79, 0x65, 0x72, 0x49, 0x64, 0x12,
-	0x24, 0x0a, 0x04, 0x74, 0x79, 0x70, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x10, 0x2e,
-	0x4c, 0x65, 0x76, 0x65, 0x6c, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x2e, 0x54, 0x79, 0x70, 0x65, 0x52,
-	0x04, 0x74, 0x79, 0x70, 0x65, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x04, 0x20, 0x01,
-	0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x1b, 0x0a, 0x09, 0x76, 0x61, 0x6c, 0x75, 0x65,
-	0x5f, 0x69, 0x6e, 0x74, 0x18, 0x05, 0x20, 0x01, 0x28, 0x05, 0x52, 0x08, 0x76, 0x61, 0x6c, 0x75,
-	0x65, 0x49, 0x6e, 0x74, 0x12, 0x21, 0x0a, 0x0c, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x5f, 0x73, 0x74,
-	0x72, 0x69, 0x6e, 0x67, 0x18, 0x06, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0b, 0x76, 0x61, 0x6c, 0x75,
-	0x65, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x22, 0x34, 0x0a, 0x04, 0x54, 0x79, 0x70, 0x65, 0x12,
-	0x0d, 0x0a, 0x09, 0x44, 0x41, 0x54, 0x41, 0x5f, 0x4e, 0x4f, 0x4e, 0x45, 0x10, 0x00, 0x12, 0x0c,
-	0x0a, 0x08, 0x44, 0x41, 0x54, 0x41, 0x5f, 0x49, 0x4e, 0x54, 0x10, 0x01, 0x12, 0x0f, 0x0a, 0x0b,
-	0x44, 0x41, 0x54, 0x41, 0x5f, 0x53, 0x54, 0x52, 0x49, 0x4e, 0x47, 0x10, 0x02, 0x32, 0xbf, 0x02,
-	0x0a, 0x0b, 0x47, 0x61, 0x6d, 0x65, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x33, 0x0a,
-	0x06, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x12, 0x12, 0x2e, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65,
-	0x47, 0x61, 0x6d, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x13, 0x2e, 0x43, 0x72,
-	0x65, 0x61, 0x74, 0x65, 0x47, 0x61, 0x6d, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
-	0x22, 0x00, 0x12, 0x2d, 0x0a, 0x04, 0x4a, 0x6f, 0x69, 0x6e, 0x12, 0x10, 0x2e, 0x4a, 0x6f, 0x69,
-	0x6e, 0x47, 0x61, 0x6d, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x11, 0x2e, 0x4a,
-	0x6f, 0x69, 0x6e, 0x47, 0x61, 0x6d, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22,
-	0x00, 0x12, 0x33, 0x0a, 0x06, 0x52, 0x65, 0x6a, 0x6f, 0x69, 0x6e, 0x12, 0x12, 0x2e, 0x52, 0x65,
-	0x6a, 0x6f, 0x69, 0x6e, 0x47, 0x61, 0x6d, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
-	0x13, 0x2e, 0x52, 0x65, 0x6a, 0x6f, 0x69, 0x6e, 0x47, 0x61, 0x6d, 0x65, 0x52, 0x65, 0x73, 0x70,
-	0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x34, 0x0a, 0x05, 0x4c, 0x65, 0x61, 0x76, 0x65, 0x12,
-	0x11, 0x2e, 0x4c, 0x65, 0x61, 0x76, 0x65, 0x47, 0x61, 0x6d, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65,
-	0x73, 0x74, 0x1a, 0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74,
-	0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x22, 0x00, 0x12, 0x3a, 0x0a, 0x0a,
-	0x53, 0x74, 0x61, 0x72, 0x74, 0x4c, 0x65, 0x76, 0x65, 0x6c, 0x12, 0x12, 0x2e, 0x53, 0x74, 0x61,
-	0x72, 0x74, 0x4c, 0x65, 0x76, 0x65, 0x6c, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x16,
-	0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66,
-	0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x22, 0x00, 0x12, 0x25, 0x0a, 0x06, 0x4c, 0x69, 0x73, 0x74,
-	0x65, 0x6e, 0x12, 0x0b, 0x2e, 0x4c, 0x69, 0x73, 0x74, 0x65, 0x6e, 0x47, 0x61, 0x6d, 0x65, 0x1a,
-	0x0a, 0x2e, 0x47, 0x61, 0x6d, 0x65, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x22, 0x00, 0x30, 0x01, 0x32,
-	0x69, 0x0a, 0x0c, 0x4c, 0x65, 0x76, 0x65, 0x6c, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12,
-	0x31, 0x0a, 0x03, 0x45, 0x6e, 0x64, 0x12, 0x10, 0x2e, 0x45, 0x6e, 0x64, 0x4c, 0x65, 0x76, 0x65,
-	0x6c, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c,
-	0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79,
-	0x22, 0x00, 0x12, 0x26, 0x0a, 0x04, 0x50, 0x6c, 0x61, 0x79, 0x12, 0x0b, 0x2e, 0x4c, 0x65, 0x76,
-	0x65, 0x6c, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x1a, 0x0b, 0x2e, 0x4c, 0x65, 0x76, 0x65, 0x6c, 0x45,
+	0x49, 0x64, 0x22, 0x30, 0x0a, 0x11, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x47, 0x61, 0x6d, 0x65,
+	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x1b, 0x0a, 0x09, 0x70, 0x6c, 0x61, 0x79, 0x65,
+	0x72, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x03, 0x28, 0x09, 0x52, 0x08, 0x70, 0x6c, 0x61, 0x79,
+	0x65, 0x72, 0x49, 0x64, 0x22, 0x2d, 0x0a, 0x12, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x47, 0x61,
+	0x6d, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x17, 0x0a, 0x07, 0x67, 0x61,
+	0x6d, 0x65, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x67, 0x61, 0x6d,
+	0x65, 0x49, 0x64, 0x22, 0xb1, 0x03, 0x0a, 0x09, 0x47, 0x61, 0x6d, 0x65, 0x45, 0x76, 0x65, 0x6e,
+	0x74, 0x12, 0x17, 0x0a, 0x07, 0x67, 0x61, 0x6d, 0x65, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x06, 0x67, 0x61, 0x6d, 0x65, 0x49, 0x64, 0x12, 0x1b, 0x0a, 0x09, 0x70, 0x6c,
+	0x61, 0x79, 0x65, 0x72, 0x5f, 0x69, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x70,
+	0x6c, 0x61, 0x79, 0x65, 0x72, 0x49, 0x64, 0x12, 0x23, 0x0a, 0x04, 0x74, 0x79, 0x70, 0x65, 0x18,
+	0x03, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x0f, 0x2e, 0x47, 0x61, 0x6d, 0x65, 0x45, 0x76, 0x65, 0x6e,
+	0x74, 0x2e, 0x54, 0x79, 0x70, 0x65, 0x52, 0x04, 0x74, 0x79, 0x70, 0x65, 0x12, 0x10, 0x0a, 0x03,
+	0x6b, 0x65, 0x79, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x1b,
+	0x0a, 0x09, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x5f, 0x69, 0x6e, 0x74, 0x18, 0x05, 0x20, 0x01, 0x28,
+	0x05, 0x52, 0x08, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x49, 0x6e, 0x74, 0x12, 0x21, 0x0a, 0x0c, 0x76,
+	0x61, 0x6c, 0x75, 0x65, 0x5f, 0x73, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x18, 0x06, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x0b, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x53, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x12, 0x35,
+	0x0a, 0x09, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x5f, 0x6d, 0x61, 0x70, 0x18, 0x07, 0x20, 0x03, 0x28,
+	0x0b, 0x32, 0x18, 0x2e, 0x47, 0x61, 0x6d, 0x65, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x2e, 0x56, 0x61,
+	0x6c, 0x75, 0x65, 0x4d, 0x61, 0x70, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x52, 0x08, 0x76, 0x61, 0x6c,
+	0x75, 0x65, 0x4d, 0x61, 0x70, 0x12, 0x1f, 0x0a, 0x0b, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x5f, 0x62,
+	0x79, 0x74, 0x65, 0x73, 0x18, 0x08, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x0a, 0x76, 0x61, 0x6c, 0x75,
+	0x65, 0x42, 0x79, 0x74, 0x65, 0x73, 0x1a, 0x3b, 0x0a, 0x0d, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x4d,
+	0x61, 0x70, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c,
+	0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a,
+	0x02, 0x38, 0x01, 0x22, 0x62, 0x0a, 0x04, 0x54, 0x79, 0x70, 0x65, 0x12, 0x0d, 0x0a, 0x09, 0x44,
+	0x41, 0x54, 0x41, 0x5f, 0x4e, 0x4f, 0x4e, 0x45, 0x10, 0x00, 0x12, 0x0c, 0x0a, 0x08, 0x44, 0x41,
+	0x54, 0x41, 0x5f, 0x49, 0x4e, 0x54, 0x10, 0x01, 0x12, 0x0f, 0x0a, 0x0b, 0x44, 0x41, 0x54, 0x41,
+	0x5f, 0x53, 0x54, 0x52, 0x49, 0x4e, 0x47, 0x10, 0x02, 0x12, 0x0c, 0x0a, 0x08, 0x44, 0x41, 0x54,
+	0x41, 0x5f, 0x4d, 0x41, 0x50, 0x10, 0x03, 0x12, 0x0e, 0x0a, 0x0a, 0x44, 0x41, 0x54, 0x41, 0x5f,
+	0x42, 0x59, 0x54, 0x45, 0x53, 0x10, 0x04, 0x12, 0x0e, 0x0a, 0x0a, 0x44, 0x41, 0x54, 0x41, 0x5f,
+	0x4d, 0x49, 0x58, 0x45, 0x44, 0x10, 0x05, 0x32, 0x37, 0x0a, 0x0c, 0x4d, 0x61, 0x74, 0x63, 0x68,
+	0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x27, 0x0a, 0x05, 0x4d, 0x61, 0x74, 0x63, 0x68,
+	0x12, 0x0d, 0x2e, 0x4d, 0x61, 0x74, 0x63, 0x68, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
+	0x0b, 0x2e, 0x4d, 0x61, 0x74, 0x63, 0x68, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x22, 0x00, 0x30, 0x01,
+	0x32, 0x68, 0x0a, 0x0b, 0x47, 0x61, 0x6d, 0x65, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12,
+	0x33, 0x0a, 0x06, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x12, 0x12, 0x2e, 0x43, 0x72, 0x65, 0x61,
+	0x74, 0x65, 0x47, 0x61, 0x6d, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x13, 0x2e,
+	0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x47, 0x61, 0x6d, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x73, 0x65, 0x22, 0x00, 0x12, 0x24, 0x0a, 0x04, 0x50, 0x6c, 0x61, 0x79, 0x12, 0x0a, 0x2e, 0x47,
+	0x61, 0x6d, 0x65, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x1a, 0x0a, 0x2e, 0x47, 0x61, 0x6d, 0x65, 0x45,
 	0x76, 0x65, 0x6e, 0x74, 0x22, 0x00, 0x28, 0x01, 0x30, 0x01, 0x42, 0x09, 0x5a, 0x07, 0x2e, 0x3b,
 	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
@@ -985,52 +614,33 @@ func file_sensense_proto_rawDescGZIP() []byte {
 }
 
 var file_sensense_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_sensense_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_sensense_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_sensense_proto_goTypes = []interface{}{
-	(GameEvent_Type)(0),        // 0: GameEvent.Type
-	(LevelEvent_Type)(0),       // 1: LevelEvent.Type
-	(*CreateGameRequest)(nil),  // 2: CreateGameRequest
-	(*CreateGameResponse)(nil), // 3: CreateGameResponse
-	(*JoinGameRequest)(nil),    // 4: JoinGameRequest
-	(*JoinGameResponse)(nil),   // 5: JoinGameResponse
-	(*RejoinGameRequest)(nil),  // 6: RejoinGameRequest
-	(*LeaveGameRequest)(nil),   // 7: LeaveGameRequest
-	(*RejoinGameResponse)(nil), // 8: RejoinGameResponse
-	(*ListenGame)(nil),         // 9: ListenGame
-	(*GameEvent)(nil),          // 10: GameEvent
-	(*StartLevelRequest)(nil),  // 11: StartLevelRequest
-	(*EndLevelRequest)(nil),    // 12: EndLevelRequest
-	(*LevelEvent)(nil),         // 13: LevelEvent
-	nil,                        // 14: GameEvent.OptionsEntry
-	nil,                        // 15: StartLevelRequest.OptionsEntry
-	(*empty.Empty)(nil),        // 16: google.protobuf.Empty
+	(MatchEvent_Type)(0),       // 0: MatchEvent.Type
+	(GameEvent_Type)(0),        // 1: GameEvent.Type
+	(*MatchRequest)(nil),       // 2: MatchRequest
+	(*MatchEvent)(nil),         // 3: MatchEvent
+	(*EndLevelRequest)(nil),    // 4: EndLevelRequest
+	(*CreateGameRequest)(nil),  // 5: CreateGameRequest
+	(*CreateGameResponse)(nil), // 6: CreateGameResponse
+	(*GameEvent)(nil),          // 7: GameEvent
+	nil,                        // 8: GameEvent.ValueMapEntry
 }
 var file_sensense_proto_depIdxs = []int32{
-	0,  // 0: GameEvent.type:type_name -> GameEvent.Type
-	14, // 1: GameEvent.options:type_name -> GameEvent.OptionsEntry
-	15, // 2: StartLevelRequest.options:type_name -> StartLevelRequest.OptionsEntry
-	1,  // 3: LevelEvent.type:type_name -> LevelEvent.Type
-	2,  // 4: GameService.Create:input_type -> CreateGameRequest
-	4,  // 5: GameService.Join:input_type -> JoinGameRequest
-	6,  // 6: GameService.Rejoin:input_type -> RejoinGameRequest
-	7,  // 7: GameService.Leave:input_type -> LeaveGameRequest
-	11, // 8: GameService.StartLevel:input_type -> StartLevelRequest
-	9,  // 9: GameService.Listen:input_type -> ListenGame
-	12, // 10: LevelService.End:input_type -> EndLevelRequest
-	13, // 11: LevelService.Play:input_type -> LevelEvent
-	3,  // 12: GameService.Create:output_type -> CreateGameResponse
-	5,  // 13: GameService.Join:output_type -> JoinGameResponse
-	8,  // 14: GameService.Rejoin:output_type -> RejoinGameResponse
-	16, // 15: GameService.Leave:output_type -> google.protobuf.Empty
-	16, // 16: GameService.StartLevel:output_type -> google.protobuf.Empty
-	10, // 17: GameService.Listen:output_type -> GameEvent
-	16, // 18: LevelService.End:output_type -> google.protobuf.Empty
-	13, // 19: LevelService.Play:output_type -> LevelEvent
-	12, // [12:20] is the sub-list for method output_type
-	4,  // [4:12] is the sub-list for method input_type
-	4,  // [4:4] is the sub-list for extension type_name
-	4,  // [4:4] is the sub-list for extension extendee
-	0,  // [0:4] is the sub-list for field type_name
+	0, // 0: MatchEvent.type:type_name -> MatchEvent.Type
+	1, // 1: GameEvent.type:type_name -> GameEvent.Type
+	8, // 2: GameEvent.value_map:type_name -> GameEvent.ValueMapEntry
+	2, // 3: MatchService.Match:input_type -> MatchRequest
+	5, // 4: GameService.Create:input_type -> CreateGameRequest
+	7, // 5: GameService.Play:input_type -> GameEvent
+	3, // 6: MatchService.Match:output_type -> MatchEvent
+	6, // 7: GameService.Create:output_type -> CreateGameResponse
+	7, // 8: GameService.Play:output_type -> GameEvent
+	6, // [6:9] is the sub-list for method output_type
+	3, // [3:6] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_sensense_proto_init() }
@@ -1040,7 +650,7 @@ func file_sensense_proto_init() {
 	}
 	if !protoimpl.UnsafeEnabled {
 		file_sensense_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CreateGameRequest); i {
+			switch v := v.(*MatchRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1052,7 +662,7 @@ func file_sensense_proto_init() {
 			}
 		}
 		file_sensense_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CreateGameResponse); i {
+			switch v := v.(*MatchEvent); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1064,102 +674,6 @@ func file_sensense_proto_init() {
 			}
 		}
 		file_sensense_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*JoinGameRequest); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_sensense_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*JoinGameResponse); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_sensense_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RejoinGameRequest); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_sensense_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*LeaveGameRequest); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_sensense_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RejoinGameResponse); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_sensense_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListenGame); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_sensense_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GameEvent); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_sensense_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*StartLevelRequest); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_sensense_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*EndLevelRequest); i {
 			case 0:
 				return &v.state
@@ -1171,8 +685,32 @@ func file_sensense_proto_init() {
 				return nil
 			}
 		}
-		file_sensense_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*LevelEvent); i {
+		file_sensense_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*CreateGameRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_sensense_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*CreateGameResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_sensense_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*GameEvent); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1190,7 +728,7 @@ func file_sensense_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_sensense_proto_rawDesc,
 			NumEnums:      2,
-			NumMessages:   14,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   2,
 		},
@@ -1213,18 +751,111 @@ var _ grpc.ClientConnInterface
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion6
 
+// MatchServiceClient is the client API for MatchService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+type MatchServiceClient interface {
+	Match(ctx context.Context, in *MatchRequest, opts ...grpc.CallOption) (MatchService_MatchClient, error)
+}
+
+type matchServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewMatchServiceClient(cc grpc.ClientConnInterface) MatchServiceClient {
+	return &matchServiceClient{cc}
+}
+
+func (c *matchServiceClient) Match(ctx context.Context, in *MatchRequest, opts ...grpc.CallOption) (MatchService_MatchClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_MatchService_serviceDesc.Streams[0], "/MatchService/Match", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &matchServiceMatchClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type MatchService_MatchClient interface {
+	Recv() (*MatchEvent, error)
+	grpc.ClientStream
+}
+
+type matchServiceMatchClient struct {
+	grpc.ClientStream
+}
+
+func (x *matchServiceMatchClient) Recv() (*MatchEvent, error) {
+	m := new(MatchEvent)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// MatchServiceServer is the server API for MatchService service.
+type MatchServiceServer interface {
+	Match(*MatchRequest, MatchService_MatchServer) error
+}
+
+// UnimplementedMatchServiceServer can be embedded to have forward compatible implementations.
+type UnimplementedMatchServiceServer struct {
+}
+
+func (*UnimplementedMatchServiceServer) Match(*MatchRequest, MatchService_MatchServer) error {
+	return status.Errorf(codes.Unimplemented, "method Match not implemented")
+}
+
+func RegisterMatchServiceServer(s *grpc.Server, srv MatchServiceServer) {
+	s.RegisterService(&_MatchService_serviceDesc, srv)
+}
+
+func _MatchService_Match_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(MatchRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(MatchServiceServer).Match(m, &matchServiceMatchServer{stream})
+}
+
+type MatchService_MatchServer interface {
+	Send(*MatchEvent) error
+	grpc.ServerStream
+}
+
+type matchServiceMatchServer struct {
+	grpc.ServerStream
+}
+
+func (x *matchServiceMatchServer) Send(m *MatchEvent) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+var _MatchService_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "MatchService",
+	HandlerType: (*MatchServiceServer)(nil),
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Match",
+			Handler:       _MatchService_Match_Handler,
+			ServerStreams: true,
+		},
+	},
+	Metadata: "sensense.proto",
+}
+
 // GameServiceClient is the client API for GameService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type GameServiceClient interface {
-	// unary services
 	Create(ctx context.Context, in *CreateGameRequest, opts ...grpc.CallOption) (*CreateGameResponse, error)
-	Join(ctx context.Context, in *JoinGameRequest, opts ...grpc.CallOption) (*JoinGameResponse, error)
-	Rejoin(ctx context.Context, in *RejoinGameRequest, opts ...grpc.CallOption) (*RejoinGameResponse, error)
-	Leave(ctx context.Context, in *LeaveGameRequest, opts ...grpc.CallOption) (*empty.Empty, error)
-	StartLevel(ctx context.Context, in *StartLevelRequest, opts ...grpc.CallOption) (*empty.Empty, error)
-	// streaming service
-	Listen(ctx context.Context, in *ListenGame, opts ...grpc.CallOption) (GameService_ListenClient, error)
+	Play(ctx context.Context, opts ...grpc.CallOption) (GameService_PlayClient, error)
 }
 
 type gameServiceClient struct {
@@ -1244,67 +875,30 @@ func (c *gameServiceClient) Create(ctx context.Context, in *CreateGameRequest, o
 	return out, nil
 }
 
-func (c *gameServiceClient) Join(ctx context.Context, in *JoinGameRequest, opts ...grpc.CallOption) (*JoinGameResponse, error) {
-	out := new(JoinGameResponse)
-	err := c.cc.Invoke(ctx, "/GameService/Join", in, out, opts...)
+func (c *gameServiceClient) Play(ctx context.Context, opts ...grpc.CallOption) (GameService_PlayClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_GameService_serviceDesc.Streams[0], "/GameService/Play", opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
-}
-
-func (c *gameServiceClient) Rejoin(ctx context.Context, in *RejoinGameRequest, opts ...grpc.CallOption) (*RejoinGameResponse, error) {
-	out := new(RejoinGameResponse)
-	err := c.cc.Invoke(ctx, "/GameService/Rejoin", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *gameServiceClient) Leave(ctx context.Context, in *LeaveGameRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
-	out := new(empty.Empty)
-	err := c.cc.Invoke(ctx, "/GameService/Leave", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *gameServiceClient) StartLevel(ctx context.Context, in *StartLevelRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
-	out := new(empty.Empty)
-	err := c.cc.Invoke(ctx, "/GameService/StartLevel", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *gameServiceClient) Listen(ctx context.Context, in *ListenGame, opts ...grpc.CallOption) (GameService_ListenClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_GameService_serviceDesc.Streams[0], "/GameService/Listen", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &gameServiceListenClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
+	x := &gameServicePlayClient{stream}
 	return x, nil
 }
 
-type GameService_ListenClient interface {
+type GameService_PlayClient interface {
+	Send(*GameEvent) error
 	Recv() (*GameEvent, error)
 	grpc.ClientStream
 }
 
-type gameServiceListenClient struct {
+type gameServicePlayClient struct {
 	grpc.ClientStream
 }
 
-func (x *gameServiceListenClient) Recv() (*GameEvent, error) {
+func (x *gameServicePlayClient) Send(m *GameEvent) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *gameServicePlayClient) Recv() (*GameEvent, error) {
 	m := new(GameEvent)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -1314,14 +908,8 @@ func (x *gameServiceListenClient) Recv() (*GameEvent, error) {
 
 // GameServiceServer is the server API for GameService service.
 type GameServiceServer interface {
-	// unary services
 	Create(context.Context, *CreateGameRequest) (*CreateGameResponse, error)
-	Join(context.Context, *JoinGameRequest) (*JoinGameResponse, error)
-	Rejoin(context.Context, *RejoinGameRequest) (*RejoinGameResponse, error)
-	Leave(context.Context, *LeaveGameRequest) (*empty.Empty, error)
-	StartLevel(context.Context, *StartLevelRequest) (*empty.Empty, error)
-	// streaming service
-	Listen(*ListenGame, GameService_ListenServer) error
+	Play(GameService_PlayServer) error
 }
 
 // UnimplementedGameServiceServer can be embedded to have forward compatible implementations.
@@ -1331,20 +919,8 @@ type UnimplementedGameServiceServer struct {
 func (*UnimplementedGameServiceServer) Create(context.Context, *CreateGameRequest) (*CreateGameResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Create not implemented")
 }
-func (*UnimplementedGameServiceServer) Join(context.Context, *JoinGameRequest) (*JoinGameResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Join not implemented")
-}
-func (*UnimplementedGameServiceServer) Rejoin(context.Context, *RejoinGameRequest) (*RejoinGameResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Rejoin not implemented")
-}
-func (*UnimplementedGameServiceServer) Leave(context.Context, *LeaveGameRequest) (*empty.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Leave not implemented")
-}
-func (*UnimplementedGameServiceServer) StartLevel(context.Context, *StartLevelRequest) (*empty.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method StartLevel not implemented")
-}
-func (*UnimplementedGameServiceServer) Listen(*ListenGame, GameService_ListenServer) error {
-	return status.Errorf(codes.Unimplemented, "method Listen not implemented")
+func (*UnimplementedGameServiceServer) Play(GameService_PlayServer) error {
+	return status.Errorf(codes.Unimplemented, "method Play not implemented")
 }
 
 func RegisterGameServiceServer(s *grpc.Server, srv GameServiceServer) {
@@ -1369,97 +945,30 @@ func _GameService_Create_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
-func _GameService_Join_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(JoinGameRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(GameServiceServer).Join(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/GameService/Join",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GameServiceServer).Join(ctx, req.(*JoinGameRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+func _GameService_Play_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(GameServiceServer).Play(&gameServicePlayServer{stream})
 }
 
-func _GameService_Rejoin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RejoinGameRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(GameServiceServer).Rejoin(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/GameService/Rejoin",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GameServiceServer).Rejoin(ctx, req.(*RejoinGameRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _GameService_Leave_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LeaveGameRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(GameServiceServer).Leave(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/GameService/Leave",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GameServiceServer).Leave(ctx, req.(*LeaveGameRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _GameService_StartLevel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(StartLevelRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(GameServiceServer).StartLevel(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/GameService/StartLevel",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GameServiceServer).StartLevel(ctx, req.(*StartLevelRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _GameService_Listen_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(ListenGame)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(GameServiceServer).Listen(m, &gameServiceListenServer{stream})
-}
-
-type GameService_ListenServer interface {
+type GameService_PlayServer interface {
 	Send(*GameEvent) error
+	Recv() (*GameEvent, error)
 	grpc.ServerStream
 }
 
-type gameServiceListenServer struct {
+type gameServicePlayServer struct {
 	grpc.ServerStream
 }
 
-func (x *gameServiceListenServer) Send(m *GameEvent) error {
+func (x *gameServicePlayServer) Send(m *GameEvent) error {
 	return x.ServerStream.SendMsg(m)
+}
+
+func (x *gameServicePlayServer) Recv() (*GameEvent, error) {
+	m := new(GameEvent)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 var _GameService_serviceDesc = grpc.ServiceDesc{
@@ -1470,171 +979,11 @@ var _GameService_serviceDesc = grpc.ServiceDesc{
 			MethodName: "Create",
 			Handler:    _GameService_Create_Handler,
 		},
-		{
-			MethodName: "Join",
-			Handler:    _GameService_Join_Handler,
-		},
-		{
-			MethodName: "Rejoin",
-			Handler:    _GameService_Rejoin_Handler,
-		},
-		{
-			MethodName: "Leave",
-			Handler:    _GameService_Leave_Handler,
-		},
-		{
-			MethodName: "StartLevel",
-			Handler:    _GameService_StartLevel_Handler,
-		},
-	},
-	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "Listen",
-			Handler:       _GameService_Listen_Handler,
-			ServerStreams: true,
-		},
-	},
-	Metadata: "sensense.proto",
-}
-
-// LevelServiceClient is the client API for LevelService service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
-type LevelServiceClient interface {
-	// unary services
-	End(ctx context.Context, in *EndLevelRequest, opts ...grpc.CallOption) (*empty.Empty, error)
-	// streaming service
-	Play(ctx context.Context, opts ...grpc.CallOption) (LevelService_PlayClient, error)
-}
-
-type levelServiceClient struct {
-	cc grpc.ClientConnInterface
-}
-
-func NewLevelServiceClient(cc grpc.ClientConnInterface) LevelServiceClient {
-	return &levelServiceClient{cc}
-}
-
-func (c *levelServiceClient) End(ctx context.Context, in *EndLevelRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
-	out := new(empty.Empty)
-	err := c.cc.Invoke(ctx, "/LevelService/End", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *levelServiceClient) Play(ctx context.Context, opts ...grpc.CallOption) (LevelService_PlayClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_LevelService_serviceDesc.Streams[0], "/LevelService/Play", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &levelServicePlayClient{stream}
-	return x, nil
-}
-
-type LevelService_PlayClient interface {
-	Send(*LevelEvent) error
-	Recv() (*LevelEvent, error)
-	grpc.ClientStream
-}
-
-type levelServicePlayClient struct {
-	grpc.ClientStream
-}
-
-func (x *levelServicePlayClient) Send(m *LevelEvent) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *levelServicePlayClient) Recv() (*LevelEvent, error) {
-	m := new(LevelEvent)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-// LevelServiceServer is the server API for LevelService service.
-type LevelServiceServer interface {
-	// unary services
-	End(context.Context, *EndLevelRequest) (*empty.Empty, error)
-	// streaming service
-	Play(LevelService_PlayServer) error
-}
-
-// UnimplementedLevelServiceServer can be embedded to have forward compatible implementations.
-type UnimplementedLevelServiceServer struct {
-}
-
-func (*UnimplementedLevelServiceServer) End(context.Context, *EndLevelRequest) (*empty.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method End not implemented")
-}
-func (*UnimplementedLevelServiceServer) Play(LevelService_PlayServer) error {
-	return status.Errorf(codes.Unimplemented, "method Play not implemented")
-}
-
-func RegisterLevelServiceServer(s *grpc.Server, srv LevelServiceServer) {
-	s.RegisterService(&_LevelService_serviceDesc, srv)
-}
-
-func _LevelService_End_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(EndLevelRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(LevelServiceServer).End(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/LevelService/End",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LevelServiceServer).End(ctx, req.(*EndLevelRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _LevelService_Play_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(LevelServiceServer).Play(&levelServicePlayServer{stream})
-}
-
-type LevelService_PlayServer interface {
-	Send(*LevelEvent) error
-	Recv() (*LevelEvent, error)
-	grpc.ServerStream
-}
-
-type levelServicePlayServer struct {
-	grpc.ServerStream
-}
-
-func (x *levelServicePlayServer) Send(m *LevelEvent) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func (x *levelServicePlayServer) Recv() (*LevelEvent, error) {
-	m := new(LevelEvent)
-	if err := x.ServerStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-var _LevelService_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "LevelService",
-	HandlerType: (*LevelServiceServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "End",
-			Handler:    _LevelService_End_Handler,
-		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Play",
-			Handler:       _LevelService_Play_Handler,
+			Handler:       _GameService_Play_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},

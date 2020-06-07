@@ -20,44 +20,37 @@ func NewPlayer2(railway *Railway) (*Player2, error) {
 }
 
 func (player2 *Player2) Interact(group *sync.WaitGroup) error {
-	player2.Player.Railway.GameCreatedSignal.L.Lock()
-	player2.Player.Railway.GameCreatedSignal.Wait()
-	player2.Player.Railway.GameCreatedSignal.L.Unlock()
-
-	err := player2.Player.JoinGame()
-	if err != nil {
-		return err
-	}
+	player2.Player.Railway.MatchCreatedSignal.L.Lock()
+	player2.Player.Railway.MatchCreatedSignal.Wait()
+	player2.Player.Railway.MatchCreatedSignal.L.Unlock()
 
 	go func() {
-		err := player2.Player.ListenGame(group, nil)
+		err := player2.Player.Match(group, nil)
+		if err != nil {
+			Logger.Printf("ERROR %v %v\n", player2.Player.PlayerID, err)
+		}
+		time.Sleep(200 * time.Millisecond)
+		Logger.Printf("INFO rejoining %v\n", player2.Player.PlayerID)
+		player2.Player.connectMatch()
+		err = player2.Player.Match(group, nil)
 		if err != nil {
 			Logger.Printf("ERROR %v %v\n", player2.Player.PlayerID, err)
 		}
 	}()
 
-	err = player2.Player.DisconnectGame()
+	time.Sleep(200 * time.Millisecond)
+
+	Logger.Printf("INFO disconnecting %v\n", player2.Player.PlayerID)
+	err := player2.Player.DisconnectMatch()
 	if err != nil {
 		Logger.Printf("ERROR %v %v\n", player2.Player.PlayerID, err)
 	}
-
-	time.Sleep(1 * time.Second)
-
-	go func() {
-		err := player2.Player.ListenGame(group, nil)
-		if err != nil {
-			Logger.Printf("ERROR %v %v\n", player2.Player.PlayerID, err)
-		}
-	}()
 
 	player2.Player.Railway.GameEndedSignal.L.Lock()
 	player2.Player.Railway.GameEndedSignal.Wait()
 	player2.Player.Railway.GameEndedSignal.L.Unlock()
 
-	err = player2.Player.Leave()
-	if err != nil {
-		return err
-	}
+	group.Done()
 
 	return nil
 }
