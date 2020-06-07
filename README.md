@@ -1,5 +1,7 @@
-# sensense-server
-The server for the Sensense game
+# grpc-gaming-server
+A gaming server implemented in gRPC. Contains two services:
+* Match - for matching players using a code
+* Game - for broadcasting messages between players
 
 ## Generating server stub
 
