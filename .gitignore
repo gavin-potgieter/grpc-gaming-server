@@ -15,4 +15,5 @@
 # vendor/
 
 server/sensense-server
+server/server
 test_client/test_client
