@@ -20,8 +20,8 @@ type Channel struct {
 func NewChannel() *Channel {
 	return &Channel{
 		Events:       make(chan interface{}, 1000),
-		Recovered:    make(chan bool, 1),
-		SkipBack:     make(chan interface{}, 1),
+		Recovered:    make(chan bool),
+		SkipBack:     make(chan interface{}),
 		lock:         sync.RWMutex{},
 		open:         true,
 		listening:    false,

@@ -39,12 +39,7 @@ func (player2 *Player2) Interact(group *sync.WaitGroup) error {
 	}()
 
 	time.Sleep(200 * time.Millisecond)
-
-	Logger.Printf("INFO disconnecting %v\n", player2.Player.PlayerID)
-	err := player2.Player.DisconnectMatch()
-	if err != nil {
-		Logger.Printf("ERROR %v %v\n", player2.Player.PlayerID, err)
-	}
+	player2.Player.connectMatch()
 
 	player2.Player.Railway.GameEndedSignal.L.Lock()
 	player2.Player.Railway.GameEndedSignal.Wait()

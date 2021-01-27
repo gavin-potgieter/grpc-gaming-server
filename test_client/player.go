@@ -70,13 +70,11 @@ func (player *Player) connectGame() error {
 }
 
 // DisconnectMatch is used to simulate bad network connectivity
-func (player *Player) DisconnectMatch() error {
-	err := player.matchConnection.Close()
+func (player *Player) DisconnectMatch(connection *grpc.ClientConn) error {
+	err := connection.Close()
 	if err != nil {
 		return err
 	}
-	player.matchConnection = nil
-	player.matchService = nil
 	return nil
 }
 
@@ -131,10 +129,10 @@ func (player *Player) Match(group *sync.WaitGroup, callback MatchEventCallback) 
 		}
 
 		Logger.Printf("INFO %v match event; event %+v", player.PlayerID, event)
-		switch event.Type {
-		case proto.MatchEvent_UPDATED:
+		if event.GameId == "" {
+
 			MatchCode = event.Code
-		case proto.MatchEvent_COMPLETED:
+		} else {
 			player.Role = int(event.PlayerIndex)
 			player.gameID = event.GameId
 			go func() {

@@ -23,7 +23,7 @@ var (
 
 const (
 	// recoveryWindow is the time the game waits if a player is disconnected before gracefully cleaning up
-	recoveryWindow    = 20 * time.Second
+	recoveryWindow    = 5 * time.Second
 	idleWindow        = 30 * time.Minute
 	scavengerInterval = 15 * time.Second
 	playerCount       = "PLAYER_COUNT"

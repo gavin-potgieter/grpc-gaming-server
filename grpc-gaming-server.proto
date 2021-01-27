@@ -6,23 +6,16 @@ message MatchRequest {
   string game = 2;
   int32 player_limit = 3;
   string code = 4;
+  string version = 5;
 }
 
 message MatchEvent {
-  enum Type {
-    UPDATED = 0;
-    COMPLETED = 1;
-  }
-  Type type = 1;
-  string code = 2;
-  int32 player_index = 3;
-  int32 player_count = 4;
-  string game_id = 5;
+  string code = 1;
+  int32 player_index = 2;
+  int32 player_count = 3;
+  string game_id = 4;
+  string location = 5;
   
-}
-
-message EndLevelRequest {
-  string level_id = 1;
 }
 
 service MatchService {
