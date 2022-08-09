@@ -3,35 +3,18 @@ A gaming server implemented in gRPC. Contains two services:
 * Match - for matching players using a code
 * Game - for broadcasting messages between players
 
+This server was build to replace UNET in [Sensense](https://apps.apple.com/us/app/sensense/id1448612001) and to resolve network stability issues without kicking players out the game. There is no game logic in the server. 
+
 ## Generating server stub
 
 ```bash
-protoc grpc-gaming-server.proto --go_out=plugins=grpc:server/proto
+protoc --go_out=server/proto grpc-gaming-server.proto
+protoc --go-grpc_out=server/proto grpc-gaming-server.proto
 ```
 
 ## Generating test client stub
 
 ```bash
-protoc grpc-gaming-server.proto --go_out=plugins=grpc:test_client/proto
-```
-
-## Generating client stub for C# clients
-
-```bash
-tools_2_26_0\protoc.exe -I client sensense.proto --csharp_out=client --grpc_out=client --plugin=protoc-gen-grpc=tools_2_26_0\grpc_csharp_plugin.exe --proto_path=.
-```
-
-## Building the server
-
-```bash
-cd server
-./build
-```
-
-## Building the test client
-
-```bash
-cd test_client
-go build
-./test_client
+protoc --go_out=test_client/proto grpc-gaming-server.proto
+protoc --go-grpc_out=test_client/proto grpc-gaming-server.proto
 ```

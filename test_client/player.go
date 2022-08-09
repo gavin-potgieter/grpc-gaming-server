@@ -41,8 +41,6 @@ func (player *Player) connectMatch() error {
 	if player.gameConnection != nil {
 		return nil
 	}
-	//52.143.158.107:5000
-	//localhost:8080
 	conn, err := grpc.Dial("localhost:8080", grpc.WithInsecure())
 	if err != nil {
 		return err

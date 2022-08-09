@@ -58,8 +58,9 @@ type game struct {
 // is required in the remaining code. All completed games must be
 // removed or there will be a memory leak.
 type Service struct {
-	lock  sync.Mutex       // the lock to serialize modification of the active games
-	games map[string]*game // the active games (for all players in all games)
+	proto.UnimplementedGameServiceServer  // "the service implementations must embed the corresponding Unimplemented<ServiceName>Server for future compatibility."
+	lock sync.Mutex                       // the lock to serialize modification of the active games
+	games map[string]*game                // the active games (for all players in all games)
 }
 
 // NewService creates a new game service

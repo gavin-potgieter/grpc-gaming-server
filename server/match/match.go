@@ -71,6 +71,7 @@ func newPlayer(id string, index int) *player {
 // instance so critical section management is required in the remaining code.
 // All completed matches must be removed or there will be a memory leak.
 type Service struct {
+	proto.UnimplementedMatchServiceServer	   // "the service implementations must embed the corresponding Unimplemented<ServiceName>Server for future compatibility."
 	gameServerURL string                       // the URL of the game server
 	lock          sync.Mutex                   // the lock to serialize modification of the active matches
 	matches       map[string]map[string]*match // the active matches [by code] (for all players in all matches)
